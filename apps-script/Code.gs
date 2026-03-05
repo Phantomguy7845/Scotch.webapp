@@ -74,7 +74,7 @@ function doGet(e) {
     }
     return jsonResponse({ ok: false, error: "Unknown action: " + action });
   } catch (error) {
-    return jsonResponse({ ok: false, error: error.message });
+    return jsonResponse({ ok: false, error: normalizeErrorMessage(error) });
   }
 }
 
@@ -92,7 +92,7 @@ function doPost(e) {
 
     return jsonResponse({ ok: false, error: "Unknown action: " + action });
   } catch (error) {
-    return jsonResponse({ ok: false, error: error.message });
+    return jsonResponse({ ok: false, error: normalizeErrorMessage(error) });
   }
 }
 
@@ -560,6 +560,11 @@ function getUploadFolder() {
   return DriveApp.createFolder(CONFIG.UPLOAD_FOLDER_NAME);
 }
 
+function authorizeDriveAccess() {
+  const folder = getUploadFolder();
+  return "Drive access OK. Folder ID: " + folder.getId();
+}
+
 function requireField(data, field) {
   if (!safeText(data[field])) {
     throw new Error("Missing required field: " + field);
@@ -643,4 +648,22 @@ function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
     ContentService.MimeType.JSON,
   );
+}
+
+function normalizeErrorMessage(error) {
+  const raw = safeText(error && error.message ? error.message : error);
+  const driveAuthError =
+    raw.indexOf("DriveApp.getFolderById") > -1 ||
+    raw.indexOf("DriveApp") > -1 && raw.indexOf("permission") > -1 ||
+    raw.indexOf("https://www.googleapis.com/auth/drive") > -1;
+
+  if (driveAuthError) {
+    return (
+      "Apps Script ยังไม่ได้อนุญาตสิทธิ์ Google Drive. " +
+      "ให้เปิด Apps Script แล้ว Run ฟังก์ชัน authorizeDriveAccess() 1 ครั้งเพื่อกดยืนยันสิทธิ์, " +
+      "จากนั้น Deploy Web App เป็นเวอร์ชันใหม่โดยตั้ง Execute as: Me."
+    );
+  }
+
+  return raw || "Unexpected error.";
 }
