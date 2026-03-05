@@ -132,8 +132,20 @@
         detailRow("สถานที่จัดส่ง", request.factoryDeliveryLocation || "-"),
         detailRow("Google Map", request.factoryDeliveryMapUrl || "-"),
         detailRow("เบอร์ติดต่อผู้รับ/หน้างาน", request.factoryReceiverPhone || "-"),
-        detailRow("เอกสารชั่วคราว", request.factoryTempDocumentRef || "-"),
-        detailRow("ข้อมูลเบิกของ/Reservation", request.factoryReservationRef || "-"),
+        detailRow("รายละเอียดเอกสารชั่วคราว", request.factoryTempDocumentRef || "-"),
+        attachmentRow(
+          "รูปเอกสารชั่วคราว",
+          request.factoryTempDocumentImageUrl,
+          request.factoryTempDocumentImageDownloadUrl,
+          request.factoryTempDocumentImageName,
+        ),
+        detailRow("รายละเอียดเบิกของ/Reservation", request.factoryReservationRef || "-"),
+        attachmentRow(
+          "รูป Reservation",
+          request.factoryReservationImageUrl,
+          request.factoryReservationImageDownloadUrl,
+          request.factoryReservationImageName,
+        ),
       ].join("");
     }
 
@@ -153,6 +165,29 @@
 
   function detailRow(label, value) {
     return `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value || "-")}</div>`;
+  }
+
+  function attachmentRow(label, viewUrl, downloadUrl, fileName) {
+    if (!viewUrl && !downloadUrl) {
+      return detailRow(label, "-");
+    }
+
+    const links = [];
+    if (viewUrl) {
+      links.push(
+        `<a class="inline-action" href="${escapeAttr(viewUrl)}" target="_blank" rel="noopener noreferrer">เปิดดู</a>`,
+      );
+    }
+    if (downloadUrl) {
+      links.push(
+        `<a class="inline-action" href="${escapeAttr(downloadUrl)}" target="_blank" rel="noopener noreferrer" download>ดาวน์โหลด</a>`,
+      );
+    }
+
+    const namePart = fileName
+      ? `<span class="file-meta">${escapeHtml(fileName)}</span>`
+      : '<span class="file-meta">แนบไฟล์แล้ว</span>';
+    return `<div><strong>${escapeHtml(label)}:</strong> ${links.join("")} ${namePart}</div>`;
   }
 
   function shuttleWaitLabel(value) {
@@ -238,5 +273,9 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replaceAll("`", "&#96;");
   }
 })();

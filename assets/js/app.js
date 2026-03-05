@@ -1,6 +1,9 @@
 (function () {
   const config = window.APP_CONFIG || {};
   const DRAFT_KEY = "scotch_webapps1_request_draft_v2";
+  const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024;
+  const FILE_FIELDS = ["factoryTempDocumentImage", "factoryReservationImage"];
+  const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const form = document.getElementById("requestForm");
   const submitBtn = document.getElementById("submitBtn");
   const clearDraftBtn = document.getElementById("clearDraftBtn");
@@ -43,8 +46,8 @@
     clearMessage();
     clearAllFieldErrors();
 
-    const payload = collectPayload();
-    const validation = validatePayload(payload);
+    const rawData = collectPayload();
+    const validation = validatePayload(rawData);
     if (validation) {
       showMessage(validation.message, "error");
       return;
@@ -59,6 +62,7 @@
       submitBtn.disabled = true;
       submitBtn.textContent = "Submitting...";
 
+      const payload = await buildPayload(rawData);
       const response = await postToApi({
         action: "submitRequest",
         data: payload,
@@ -94,7 +98,11 @@
     const data = {};
     const formData = new FormData(form);
     for (const [key, value] of formData.entries()) {
-      data[key] = String(value || "").trim();
+      if (value instanceof File) {
+        data[key] = value.size > 0 ? value : null;
+      } else {
+        data[key] = String(value || "").trim();
+      }
     }
 
     data.policyAgree = form.elements.policyAgree.checked ? "YES" : "NO";
@@ -120,7 +128,9 @@
         "factoryDeliveryLocation",
         "factoryDeliveryMapUrl",
         "factoryReceiverPhone",
+        "factoryTempDocumentImage",
         "factoryTempDocumentRef",
+        "factoryReservationImage",
         "factoryReservationRef",
         "shuttlePassengers",
         "shuttleTravelDate",
@@ -139,7 +149,9 @@
         "factoryDeliveryLocation",
         "factoryDeliveryMapUrl",
         "factoryReceiverPhone",
+        "factoryTempDocumentImage",
         "factoryTempDocumentRef",
+        "factoryReservationImage",
         "factoryReservationRef",
       ]);
     }
@@ -156,6 +168,14 @@
     }
 
     return data;
+  }
+
+  async function buildPayload(rawData) {
+    const payload = { ...rawData };
+    for (const fieldName of FILE_FIELDS) {
+      payload[fieldName] = await toAttachmentPayload(rawData[fieldName]);
+    }
+    return payload;
   }
 
   function validatePayload(data) {
@@ -237,16 +257,14 @@
           setFieldError("factoryReceiverPhone", "รูปแบบเบอร์โทรไม่ถูกต้อง");
           return { message: "เบอร์ติดต่อผู้รับ/หน้างานไม่ถูกต้อง" };
         }
-        if (!data.factoryTempDocumentRef)
-          return fieldRequired(
-            "factoryTempDocumentRef",
-            "กรุณาระบุเอกสารใบส่ง/ใบคืนสินค้าชั่วคราว",
-          );
-        if (!data.factoryReservationRef)
-          return fieldRequired(
-            "factoryReservationRef",
-            "กรุณาระบุข้อมูลเบิกของ/ภาพแคป E-Mail Reservation",
-          );
+        if (!isValidUploadFile(data.factoryTempDocumentImage)) {
+          setFieldError("factoryTempDocumentImage", "กรุณาแนบรูปเอกสารให้ถูกต้อง (png/jpg/webp ไม่เกิน 3MB)");
+          return { message: "กรุณาแนบรูปเอกสารชั่วคราวให้ถูกต้อง" };
+        }
+        if (!isValidUploadFile(data.factoryReservationImage)) {
+          setFieldError("factoryReservationImage", "กรุณาแนบรูป Reservation ให้ถูกต้อง (png/jpg/webp ไม่เกิน 3MB)");
+          return { message: "กรุณาแนบรูป Reservation ให้ถูกต้อง" };
+        }
       }
 
       if (data.factoryCaseType === "FACTORY_STAFF_SHUTTLE") {
@@ -354,7 +372,7 @@
 
   function clearKeys(data, keys) {
     keys.forEach((key) => {
-      data[key] = "";
+      data[key] = FILE_FIELDS.includes(key) ? null : "";
     });
   }
 
@@ -379,6 +397,7 @@
     const draft = {};
     Array.from(form.elements).forEach((el) => {
       if (!el.name) return;
+      if (el.type === "file") return;
       if (el.type === "radio") {
         if (el.checked) draft[el.name] = el.value;
       } else if (el.type === "checkbox") {
@@ -404,6 +423,8 @@
             control.checked = control.value === draft[name];
           } else if (control.type === "checkbox") {
             control.checked = Boolean(draft[name]);
+          } else if (control.type === "file") {
+            control.value = "";
           } else {
             control.value = draft[name] || "";
           }
@@ -462,6 +483,41 @@
     } catch (error) {
       return false;
     }
+  }
+
+  function isValidUploadFile(file) {
+    if (!(file instanceof File)) return false;
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) return false;
+    if (file.size <= 0 || file.size > MAX_FILE_SIZE_BYTES) return false;
+    return true;
+  }
+
+  async function toAttachmentPayload(file) {
+    if (!(file instanceof File) || file.size === 0) return null;
+    const base64 = await readFileAsBase64(file);
+    return {
+      name: file.name,
+      mimeType: file.type,
+      base64: base64,
+      size: file.size,
+    };
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const base64 = result.split(",")[1] || "";
+        if (!base64) {
+          reject(new Error("Cannot read selected file."));
+          return;
+        }
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error("Cannot read selected file."));
+      reader.readAsDataURL(file);
+    });
   }
 
   function isApiConfigured() {

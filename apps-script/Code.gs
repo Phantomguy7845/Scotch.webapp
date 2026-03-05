@@ -3,12 +3,17 @@ const CONFIG = {
   ADMIN_KEY: "CHANGE_ME_TO_A_STRONG_ADMIN_KEY",
   TIME_ZONE: "Asia/Bangkok",
   APP_NAME: "Scotch webapps1",
+  UPLOAD_FOLDER_ID: "1Bm1WDqIHaxMLzBmzU5iyRvxSlLL99PGS",
+  UPLOAD_FOLDER_NAME: "ScotchWebapps1_Uploads",
+  MAKE_UPLOAD_PUBLIC: true,
+  MAX_UPLOAD_BYTES: 3 * 1024 * 1024,
 };
 
 const TOPIC_OFF_CYCLE = "OFF_CYCLE_DELIVERY";
 const TOPIC_FACTORY = "FACTORY_CAR";
 const CASE_FACTORY_DELIVERY = "FACTORY_DELIVERY_DOCS";
 const CASE_FACTORY_SHUTTLE = "FACTORY_STAFF_SHUTTLE";
+const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const HEADERS = [
   "requestId",
@@ -42,6 +47,14 @@ const HEADERS = [
   "approvedAt",
   "approvedBy",
   "emailStatus",
+  "factoryTempDocumentImageName",
+  "factoryTempDocumentImageUrl",
+  "factoryTempDocumentImageDownloadUrl",
+  "factoryTempDocumentImageFileId",
+  "factoryReservationImageName",
+  "factoryReservationImageUrl",
+  "factoryReservationImageDownloadUrl",
+  "factoryReservationImageFileId",
 ];
 
 function doGet(e) {
@@ -84,12 +97,21 @@ function doPost(e) {
 }
 
 function submitRequest(data) {
-  const clean = sanitizeData(data);
-  validateSubmission(clean);
+  const clean = sanitizeTextData(data);
+  const attachments = sanitizeAttachments(data);
+  validateSubmission(clean, attachments);
 
   const sheet = getOrCreateSheet();
   const requestId = "REQ-" + Utilities.getUuid().slice(0, 8).toUpperCase();
   const submittedAt = nowIso();
+
+  let tempDocUpload = emptyUploadMeta();
+  let reservationUpload = emptyUploadMeta();
+
+  if (clean.requestTopic === TOPIC_FACTORY && clean.factoryCaseType === CASE_FACTORY_DELIVERY) {
+    tempDocUpload = saveAttachmentToDrive(attachments.factoryTempDocumentImage, requestId, "temp_doc");
+    reservationUpload = saveAttachmentToDrive(attachments.factoryReservationImage, requestId, "reservation");
+  }
 
   const record = {
     requestId: requestId,
@@ -123,6 +145,14 @@ function submitRequest(data) {
     approvedAt: "",
     approvedBy: "",
     emailStatus: "",
+    factoryTempDocumentImageName: tempDocUpload.name,
+    factoryTempDocumentImageUrl: tempDocUpload.url,
+    factoryTempDocumentImageDownloadUrl: tempDocUpload.downloadUrl,
+    factoryTempDocumentImageFileId: tempDocUpload.fileId,
+    factoryReservationImageName: reservationUpload.name,
+    factoryReservationImageUrl: reservationUpload.url,
+    factoryReservationImageDownloadUrl: reservationUpload.downloadUrl,
+    factoryReservationImageFileId: reservationUpload.fileId,
   };
 
   const row = HEADERS.map(function (header) {
@@ -249,8 +279,12 @@ function sendApprovalEmail(request) {
       lines.push("สถานที่จัดส่ง: " + request.factoryDeliveryLocation);
       lines.push("Google Map: " + request.factoryDeliveryMapUrl);
       lines.push("เบอร์ติดต่อหน้างาน: " + request.factoryReceiverPhone);
-      lines.push("เอกสารชั่วคราว: " + request.factoryTempDocumentRef);
-      lines.push("ข้อมูลเบิกของ/Reservation: " + request.factoryReservationRef);
+      lines.push("รายละเอียดเอกสารชั่วคราว: " + request.factoryTempDocumentRef);
+      lines.push("รายละเอียด Reservation: " + request.factoryReservationRef);
+      lines.push("ลิงก์รูปเอกสารชั่วคราว: " + request.factoryTempDocumentImageUrl);
+      lines.push("ลิงก์ดาวน์โหลดเอกสารชั่วคราว: " + request.factoryTempDocumentImageDownloadUrl);
+      lines.push("ลิงก์รูป Reservation: " + request.factoryReservationImageUrl);
+      lines.push("ลิงก์ดาวน์โหลดรูป Reservation: " + request.factoryReservationImageDownloadUrl);
     }
     if (request.factoryCaseType === CASE_FACTORY_SHUTTLE) {
       lines.push("จำนวนผู้โดยสาร: " + request.shuttlePassengers);
@@ -289,15 +323,85 @@ function shuttleWaitLabel(value) {
   return value;
 }
 
-function sanitizeData(data) {
-  const output = {};
-  Object.keys(data || {}).forEach(function (key) {
-    output[key] = safeText(data[key]);
-  });
-  return output;
+function sanitizeTextData(data) {
+  return {
+    requestTopic: safeText(data.requestTopic),
+    requestTopicLabel: safeText(data.requestTopicLabel),
+    factoryCaseType: safeText(data.factoryCaseType),
+    factoryCaseLabel: safeText(data.factoryCaseLabel),
+    requesterName: safeText(data.requesterName),
+    requesterPhone: safeText(data.requesterPhone),
+    contactEmail: safeText(data.contactEmail),
+    offcycleStoreName: safeText(data.offcycleStoreName),
+    offcycleDeliveryDate: safeText(data.offcycleDeliveryDate),
+    offcycleCrates: safeText(data.offcycleCrates),
+    offcycleAmount: safeText(data.offcycleAmount),
+    factoryJobName: safeText(data.factoryJobName),
+    factoryDeliveryDate: safeText(data.factoryDeliveryDate),
+    factoryDeliveryTime: safeText(data.factoryDeliveryTime),
+    factoryDeliveryLocation: safeText(data.factoryDeliveryLocation),
+    factoryDeliveryMapUrl: safeText(data.factoryDeliveryMapUrl),
+    factoryReceiverPhone: safeText(data.factoryReceiverPhone),
+    factoryTempDocumentRef: safeText(data.factoryTempDocumentRef),
+    factoryReservationRef: safeText(data.factoryReservationRef),
+    shuttlePassengers: safeText(data.shuttlePassengers),
+    shuttleTravelDate: safeText(data.shuttleTravelDate),
+    shuttleTravelTime: safeText(data.shuttleTravelTime),
+    shuttleReturnWait: safeText(data.shuttleReturnWait),
+    shuttleLocation: safeText(data.shuttleLocation),
+    shuttleMapUrl: safeText(data.shuttleMapUrl),
+    policyAgree: safeText(data.policyAgree),
+  };
 }
 
-function validateSubmission(data) {
+function sanitizeAttachments(data) {
+  return {
+    factoryTempDocumentImage: normalizeAttachment(data.factoryTempDocumentImage),
+    factoryReservationImage: normalizeAttachment(data.factoryReservationImage),
+  };
+}
+
+function normalizeAttachment(rawAttachment) {
+  if (!rawAttachment || typeof rawAttachment !== "object") {
+    return emptyAttachment();
+  }
+  return {
+    name: safeText(rawAttachment.name),
+    mimeType: safeText(rawAttachment.mimeType).toLowerCase(),
+    base64: safeBase64(rawAttachment.base64),
+    size: Number(rawAttachment.size || 0),
+  };
+}
+
+function emptyAttachment() {
+  return {
+    name: "",
+    mimeType: "",
+    base64: "",
+    size: 0,
+  };
+}
+
+function emptyUploadMeta() {
+  return {
+    name: "",
+    url: "",
+    downloadUrl: "",
+    fileId: "",
+  };
+}
+
+function safeBase64(value) {
+  const text = safeText(value);
+  if (!text) return "";
+  const commaIndex = text.indexOf(",");
+  if (commaIndex > -1) {
+    return safeText(text.slice(commaIndex + 1));
+  }
+  return text;
+}
+
+function validateSubmission(data, attachments) {
   const allowedTopics = [TOPIC_OFF_CYCLE, TOPIC_FACTORY];
   if (allowedTopics.indexOf(data.requestTopic) === -1) {
     throw new Error("Invalid request topic.");
@@ -342,14 +446,14 @@ function validateSubmission(data) {
       requireField(data, "factoryDeliveryLocation");
       requireField(data, "factoryDeliveryMapUrl");
       requireField(data, "factoryReceiverPhone");
-      requireField(data, "factoryTempDocumentRef");
-      requireField(data, "factoryReservationRef");
       if (!isValidUrl(data.factoryDeliveryMapUrl)) {
         throw new Error("Invalid factoryDeliveryMapUrl.");
       }
       if (!isValidPhone(data.factoryReceiverPhone)) {
         throw new Error("Invalid factoryReceiverPhone.");
       }
+      assertValidAttachment(attachments.factoryTempDocumentImage, "factoryTempDocumentImage");
+      assertValidAttachment(attachments.factoryReservationImage, "factoryReservationImage");
     }
 
     if (data.factoryCaseType === CASE_FACTORY_SHUTTLE) {
@@ -370,6 +474,90 @@ function validateSubmission(data) {
       }
     }
   }
+}
+
+function assertValidAttachment(attachment, fieldName) {
+  if (!attachment || !attachment.base64) {
+    throw new Error("Missing required attachment: " + fieldName);
+  }
+  if (ALLOWED_IMAGE_MIME_TYPES.indexOf(attachment.mimeType) === -1) {
+    throw new Error("Invalid attachment mime type: " + fieldName);
+  }
+  const decodedBytes = estimateDecodedByteSize(attachment.base64);
+  if (decodedBytes <= 0) {
+    throw new Error("Invalid attachment content: " + fieldName);
+  }
+  if (decodedBytes > CONFIG.MAX_UPLOAD_BYTES) {
+    throw new Error("Attachment is too large: " + fieldName);
+  }
+}
+
+function estimateDecodedByteSize(base64) {
+  const value = safeText(base64);
+  if (!value) return 0;
+  const paddingMatches = value.match(/=*$/);
+  const paddingCount = paddingMatches ? paddingMatches[0].length : 0;
+  return Math.floor((value.length * 3) / 4) - paddingCount;
+}
+
+function saveAttachmentToDrive(attachment, requestId, label) {
+  const bytes = Utilities.base64Decode(attachment.base64);
+  if (!bytes || !bytes.length) {
+    throw new Error("Attachment is empty: " + label);
+  }
+  if (bytes.length > CONFIG.MAX_UPLOAD_BYTES) {
+    throw new Error("Attachment exceeds limit: " + label);
+  }
+
+  const fileName = buildAttachmentFileName(attachment.name, requestId, label, attachment.mimeType);
+  const blob = Utilities.newBlob(bytes, attachment.mimeType, fileName);
+  const folder = getUploadFolder();
+  const file = folder.createFile(blob);
+
+  if (CONFIG.MAKE_UPLOAD_PUBLIC) {
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (error) {
+      // Keep private when org policy blocks public sharing.
+    }
+  }
+
+  return {
+    name: file.getName(),
+    url: file.getUrl(),
+    downloadUrl: "https://drive.google.com/uc?export=download&id=" + file.getId(),
+    fileId: file.getId(),
+  };
+}
+
+function buildAttachmentFileName(originalName, requestId, label, mimeType) {
+  const rawName = sanitizeFileName(safeText(originalName));
+  const ext = rawName && rawName.indexOf(".") > -1 ? "" : "." + extensionFromMimeType(mimeType);
+  const timestamp = Utilities.formatDate(new Date(), CONFIG.TIME_ZONE, "yyyyMMdd_HHmmss");
+  const baseName = rawName || label + ext;
+  return requestId + "_" + label + "_" + timestamp + "_" + baseName;
+}
+
+function extensionFromMimeType(mimeType) {
+  if (mimeType === "image/jpeg") return "jpg";
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  return "bin";
+}
+
+function sanitizeFileName(fileName) {
+  return safeText(fileName).replace(/[^\w.\-]+/g, "_").slice(0, 120);
+}
+
+function getUploadFolder() {
+  if (safeText(CONFIG.UPLOAD_FOLDER_ID)) {
+    return DriveApp.getFolderById(CONFIG.UPLOAD_FOLDER_ID);
+  }
+  const folders = DriveApp.getFoldersByName(CONFIG.UPLOAD_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  return DriveApp.createFolder(CONFIG.UPLOAD_FOLDER_NAME);
 }
 
 function requireField(data, field) {

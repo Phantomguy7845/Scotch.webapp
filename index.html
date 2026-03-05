@@ -210,23 +210,45 @@
               </label>
 
               <label class="col-span-2">
-                <span>เอกสารใบส่งสินค้าชั่วคราว/ใบคืนสินค้าชั่วคราว *</span>
+                <span>แนบรูปเอกสารใบส่งสินค้าชั่วคราว/ใบคืนสินค้าชั่วคราว *</span>
+                <input
+                  name="factoryTempDocumentImage"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                />
+                <small class="field-hint">รองรับไฟล์ภาพ .png .jpg .webp (ไม่เกิน 3MB)</small>
+                <p class="field-error" data-error-for="factoryTempDocumentImage"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>รายละเอียดเอกสารเพิ่มเติม (ถ้ามี)</span>
                 <textarea
                   name="factoryTempDocumentRef"
                   rows="2"
                   maxlength="400"
-                  placeholder="ระบุเลขเอกสารหรือแนบลิงก์เอกสาร"
+                  placeholder="เช่น เลขเอกสาร / หมายเหตุเพิ่มเติม"
                 ></textarea>
                 <p class="field-error" data-error-for="factoryTempDocumentRef"></p>
               </label>
 
               <label class="col-span-2">
-                <span>เบิกของจากไหน (ภาพแคป E-Mail Reservation) *</span>
+                <span>แนบรูปเบิกของจากไหน (ภาพแคป E-Mail Reservation) *</span>
+                <input
+                  name="factoryReservationImage"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                />
+                <small class="field-hint">รองรับไฟล์ภาพ .png .jpg .webp (ไม่เกิน 3MB)</small>
+                <p class="field-error" data-error-for="factoryReservationImage"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>รายละเอียด Reservation เพิ่มเติม (ถ้ามี)</span>
                 <textarea
                   name="factoryReservationRef"
                   rows="2"
                   maxlength="400"
-                  placeholder="ระบุจุดเบิกหรือแนบลิงก์ภาพแคป"
+                  placeholder="เช่น จุดเบิกของ / หมายเหตุเพิ่มเติม"
                 ></textarea>
                 <p class="field-error" data-error-for="factoryReservationRef"></p>
               </label>
