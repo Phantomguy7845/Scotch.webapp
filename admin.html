@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scotch webapps1 | Admin Approval</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <main class="page page-admin">
+      <section class="hero hero-compact">
+        <p class="hero-kicker">Scotch Fleet Service</p>
+        <h1>Admin Approval Console</h1>
+        <p class="hero-copy">
+          Review pending vehicle requests and approve them. Approval triggers an email notification
+          to the requester.
+        </p>
+      </section>
+
+      <section class="card admin-tools">
+        <div class="control-grid">
+          <label>
+            <span>Apps Script URL</span>
+            <input id="apiUrlInput" type="text" readonly />
+          </label>
+
+          <label>
+            <span>Admin key *</span>
+            <input id="adminKeyInput" type="password" placeholder="Enter your admin key" />
+          </label>
+
+          <label>
+            <span>Approved by</span>
+            <input id="approvedByInput" type="text" placeholder="Admin name" value="Fleet Admin" />
+          </label>
+        </div>
+
+        <div class="admin-actions">
+          <button id="saveAdminKeyBtn" type="button">Save key</button>
+          <button id="refreshBtn" type="button" class="button-secondary">Refresh requests</button>
+          <p id="adminMessage" class="form-message" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="card admin-list-wrap">
+        <div class="list-head">
+          <h2>Requests</h2>
+          <p id="requestCount">0 records</p>
+        </div>
+        <div id="requestList" class="request-list"></div>
+      </section>
+    </main>
+
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/admin.js"></script>
+  </body>
+</html>

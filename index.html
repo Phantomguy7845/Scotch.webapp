@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scotch webapps1 | Fleet Request</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <main class="page page-request">
+      <section class="hero">
+        <p class="hero-kicker">Scotch Fleet Service</p>
+        <h1>Request a Company Vehicle</h1>
+        <p class="hero-copy">
+          Fast internal workflow for booking company vehicles. Submit details once, then wait for
+          admin approval by email.
+        </p>
+        <div class="hero-pill-row">
+          <span class="hero-pill">Simple 2-step flow</span>
+          <span class="hero-pill">Email approval notice</span>
+          <span class="hero-pill">Google Sheets backend</span>
+        </div>
+      </section>
+
+      <section class="card request-card">
+        <div class="card-head">
+          <h2>Vehicle Request Form</h2>
+          <p>Fill all required fields before submitting.</p>
+        </div>
+
+        <form id="requestForm" class="form-grid" novalidate>
+          <label>
+            <span>Employee name *</span>
+            <input name="employeeName" type="text" required />
+          </label>
+
+          <label>
+            <span>Department *</span>
+            <input name="department" type="text" required />
+          </label>
+
+          <label>
+            <span>Email *</span>
+            <input name="email" type="email" required />
+          </label>
+
+          <label>
+            <span>Phone *</span>
+            <input name="phone" type="tel" required />
+          </label>
+
+          <label>
+            <span>Trip date *</span>
+            <input name="tripDate" type="date" required />
+          </label>
+
+          <label>
+            <span>Start time *</span>
+            <input name="startTime" type="time" required />
+          </label>
+
+          <label>
+            <span>End time *</span>
+            <input name="endTime" type="time" required />
+          </label>
+
+          <label>
+            <span>Passengers *</span>
+            <input name="passengers" type="number" min="1" max="20" required />
+          </label>
+
+          <label class="col-span-2">
+            <span>Pickup location *</span>
+            <input name="pickup" type="text" required />
+          </label>
+
+          <label class="col-span-2">
+            <span>Destination *</span>
+            <input name="destination" type="text" required />
+          </label>
+
+          <label class="col-span-2">
+            <span>Purpose *</span>
+            <textarea name="purpose" rows="3" required></textarea>
+          </label>
+
+          <label class="col-span-2">
+            <span>Additional note</span>
+            <textarea name="notes" rows="2"></textarea>
+          </label>
+
+          <div class="col-span-2 form-actions">
+            <button id="submitBtn" type="submit">Submit request</button>
+            <p id="formMessage" class="form-message" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/app.js"></script>
+  </body>
+</html>
