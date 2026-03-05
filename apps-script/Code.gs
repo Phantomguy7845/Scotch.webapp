@@ -15,6 +15,9 @@ const TOPIC_FACTORY = "FACTORY_CAR";
 const CASE_FACTORY_DELIVERY = "FACTORY_DELIVERY_DOCS";
 const CASE_FACTORY_SHUTTLE = "FACTORY_STAFF_SHUTTLE";
 const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
+const DATE_FORMAT = "yyyy-MM-dd";
+const TIME_FORMAT = "HH:mm";
 
 const HEADERS = [
   "requestId",
@@ -65,6 +68,10 @@ const HEADERS = [
   "rejectedBy",
   "decisionRemark",
 ];
+
+const DATETIME_FIELDS = ["submittedAt", "approvedAt", "rejectedAt"];
+const DATE_FIELDS = ["offcycleDeliveryDate", "factoryDeliveryDate", "shuttleTravelDate"];
+const TIME_FIELDS = ["factoryDeliveryTime", "shuttleTravelTime"];
 
 function doGet(e) {
   try {
@@ -332,7 +339,8 @@ function readRequests() {
 function rowToRequest(row) {
   const request = {};
   for (let i = 0; i < HEADERS.length; i += 1) {
-    request[HEADERS[i]] = row[i] === undefined ? "" : String(row[i]);
+    const field = HEADERS[i];
+    request[field] = normalizeCellValue(field, row[i]);
   }
   return request;
 }
@@ -832,6 +840,75 @@ function isValidUrl(url) {
   return /^https?:\/\/.+/i.test(text);
 }
 
+function normalizeCellValue(field, rawValue) {
+  if (rawValue === undefined || rawValue === null || rawValue === "") return "";
+
+  if (rawValue instanceof Date) {
+    return formatByFieldType(field, rawValue);
+  }
+
+  const text = safeText(rawValue);
+  if (!text) return "";
+
+  if (DATETIME_FIELDS.indexOf(field) > -1) {
+    return normalizeDateTimeText(text);
+  }
+  if (DATE_FIELDS.indexOf(field) > -1) {
+    return normalizeDateText(text);
+  }
+  if (TIME_FIELDS.indexOf(field) > -1) {
+    return normalizeTimeText(text);
+  }
+  return text;
+}
+
+function formatByFieldType(field, dateValue) {
+  if (DATE_FIELDS.indexOf(field) > -1) {
+    return Utilities.formatDate(dateValue, CONFIG.TIME_ZONE, DATE_FORMAT);
+  }
+  if (TIME_FIELDS.indexOf(field) > -1) {
+    return Utilities.formatDate(dateValue, CONFIG.TIME_ZONE, TIME_FORMAT);
+  }
+  return Utilities.formatDate(dateValue, CONFIG.TIME_ZONE, DATETIME_FORMAT);
+}
+
+function normalizeDateTimeText(text) {
+  const parsed = toDateOrNull(text);
+  if (parsed) return Utilities.formatDate(parsed, CONFIG.TIME_ZONE, DATETIME_FORMAT);
+
+  return text
+    .replace("T", " ")
+    .replace(/Z$/i, "")
+    .replace(/([+\-]\d{2}:?\d{2})$/i, "")
+    .replace(/\s*GMT[+\-]\d{4}.*/i, "")
+    .replace(/\s*\(.*\)$/i, "")
+    .trim();
+}
+
+function normalizeDateText(text) {
+  const parsed = toDateOrNull(text);
+  if (parsed) return Utilities.formatDate(parsed, CONFIG.TIME_ZONE, DATE_FORMAT);
+
+  const match = text.match(/^\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0];
+  return text;
+}
+
+function normalizeTimeText(text) {
+  const parsed = toDateOrNull(text);
+  if (parsed) return Utilities.formatDate(parsed, CONFIG.TIME_ZONE, TIME_FORMAT);
+
+  const match = text.match(/^\d{2}:\d{2}/);
+  if (match) return match[0];
+  return text;
+}
+
+function toDateOrNull(value) {
+  if (!safeText(value)) return null;
+  const dateObj = new Date(value);
+  return isNaN(dateObj.getTime()) ? null : dateObj;
+}
+
 function canUseNoReply() {
   try {
     const effectiveEmail = safeText(Session.getEffectiveUser().getEmail());
@@ -860,7 +937,7 @@ function safeText(value) {
 }
 
 function nowIso() {
-  return Utilities.formatDate(new Date(), CONFIG.TIME_ZONE, "yyyy-MM-dd'T'HH:mm:ss");
+  return Utilities.formatDate(new Date(), CONFIG.TIME_ZONE, DATETIME_FORMAT);
 }
 
 function jsonResponse(payload) {
