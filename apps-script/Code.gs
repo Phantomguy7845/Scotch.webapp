@@ -30,6 +30,11 @@ const HEADERS = [
   "offcycleDeliveryDate",
   "offcycleCrates",
   "offcycleAmount",
+  "offcycleHasPo",
+  "offcyclePoImageName",
+  "offcyclePoImageUrl",
+  "offcyclePoImageDownloadUrl",
+  "offcyclePoImageFileId",
   "factoryJobName",
   "factoryDeliveryDate",
   "factoryDeliveryTime",
@@ -112,6 +117,11 @@ function submitRequest(data) {
 
   let tempDocUpload = emptyUploadMeta();
   let reservationUpload = emptyUploadMeta();
+  let offcyclePoUpload = emptyUploadMeta();
+
+  if (clean.requestTopic === TOPIC_OFF_CYCLE && clean.offcycleHasPo === "YES") {
+    offcyclePoUpload = saveAttachmentToDrive(attachments.offcyclePoImage, requestId, "offcycle_po");
+  }
 
   if (clean.requestTopic === TOPIC_FACTORY && clean.factoryCaseType === CASE_FACTORY_DELIVERY) {
     tempDocUpload = saveAttachmentToDrive(attachments.factoryTempDocumentImage, requestId, "temp_doc");
@@ -132,6 +142,11 @@ function submitRequest(data) {
     offcycleDeliveryDate: clean.offcycleDeliveryDate,
     offcycleCrates: clean.offcycleCrates,
     offcycleAmount: clean.offcycleAmount,
+    offcycleHasPo: clean.offcycleHasPo,
+    offcyclePoImageName: offcyclePoUpload.name,
+    offcyclePoImageUrl: offcyclePoUpload.url,
+    offcyclePoImageDownloadUrl: offcyclePoUpload.downloadUrl,
+    offcyclePoImageFileId: offcyclePoUpload.fileId,
     factoryJobName: clean.factoryJobName,
     factoryDeliveryDate: clean.factoryDeliveryDate,
     factoryDeliveryTime: clean.factoryDeliveryTime,
@@ -272,6 +287,11 @@ function sendApprovalEmail(request) {
     lines.push("วันที่ต้องการจัดส่ง: " + request.offcycleDeliveryDate);
     lines.push("จำนวนลังสินค้า: " + request.offcycleCrates);
     lines.push("ยอดเงิน: " + request.offcycleAmount);
+    lines.push("มี PO: " + (request.offcycleHasPo === "YES" ? "มี" : "ไม่มี"));
+    if (request.offcycleHasPo === "YES") {
+      lines.push("ลิงก์รูป PO: " + request.offcyclePoImageUrl);
+      lines.push("ลิงก์ดาวน์โหลดรูป PO: " + request.offcyclePoImageDownloadUrl);
+    }
   }
 
   if (request.requestTopic === TOPIC_FACTORY) {
@@ -340,6 +360,7 @@ function sanitizeTextData(data) {
     offcycleDeliveryDate: safeText(data.offcycleDeliveryDate),
     offcycleCrates: safeText(data.offcycleCrates),
     offcycleAmount: safeText(data.offcycleAmount),
+    offcycleHasPo: safeText(data.offcycleHasPo) === "YES" ? "YES" : "NO",
     factoryJobName: safeText(data.factoryJobName),
     factoryDeliveryDate: safeText(data.factoryDeliveryDate),
     factoryDeliveryTime: safeText(data.factoryDeliveryTime),
@@ -360,6 +381,7 @@ function sanitizeTextData(data) {
 
 function sanitizeAttachments(data) {
   return {
+    offcyclePoImage: normalizeAttachment(data.offcyclePoImage),
     factoryTempDocumentImage: normalizeAttachment(data.factoryTempDocumentImage),
     factoryReservationImage: normalizeAttachment(data.factoryReservationImage),
   };
@@ -409,6 +431,12 @@ function validateSubmission(data, attachments) {
     requireField(data, "offcycleAmount");
     if (!isIntAtLeast(data.offcycleCrates, 1)) throw new Error("offcycleCrates must be >= 1.");
     if (!isNumberAtLeast(data.offcycleAmount, 0)) throw new Error("offcycleAmount must be >= 0.");
+    if (data.offcycleHasPo !== "YES" && data.offcycleHasPo !== "NO") {
+      throw new Error("Invalid offcycleHasPo.");
+    }
+    if (data.offcycleHasPo === "YES") {
+      assertValidAttachment(attachments.offcyclePoImage, "offcyclePoImage");
+    }
   }
 
   if (data.requestTopic === TOPIC_FACTORY) {

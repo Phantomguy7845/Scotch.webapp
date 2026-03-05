@@ -126,6 +126,13 @@
         detailRow("วันที่ต้องการจัดส่ง", request.offcycleDeliveryDate || "-"),
         detailRow("จำนวนลังสินค้า", request.offcycleCrates || "-"),
         detailRow("ยอดเงิน", request.offcycleAmount || "-"),
+        detailRow("มี PO", request.offcycleHasPo === "YES" ? "มี" : "ไม่มี"),
+        attachmentRow(
+          "รูป PO",
+          request.offcyclePoImageUrl,
+          request.offcyclePoImageDownloadUrl,
+          request.offcyclePoImageName,
+        ),
       ].join("");
     }
 

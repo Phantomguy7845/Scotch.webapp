@@ -2,13 +2,14 @@
   const config = window.APP_CONFIG || {};
   const DRAFT_KEY = "scotch_webapps1_request_draft_v2";
   const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024;
-  const FILE_FIELDS = ["factoryTempDocumentImage", "factoryReservationImage"];
+  const FILE_FIELDS = ["offcyclePoImage", "factoryTempDocumentImage", "factoryReservationImage"];
   const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const form = document.getElementById("requestForm");
   const submitBtn = document.getElementById("submitBtn");
   const clearDraftBtn = document.getElementById("clearDraftBtn");
   const messageEl = document.getElementById("formMessage");
   const offCycleBlock = document.getElementById("offCycleBlock");
+  const offcyclePoBlock = document.getElementById("offcyclePoBlock");
   const factoryCaseBlock = document.getElementById("factoryCaseBlock");
   const factoryDeliveryBlock = document.getElementById("factoryDeliveryBlock");
   const factoryShuttleBlock = document.getElementById("factoryShuttleBlock");
@@ -110,6 +111,7 @@
     }
 
     data.policyAgree = form.elements.policyAgree.checked ? "YES" : "NO";
+    data.offcycleHasPo = form.elements.offcycleHasPo.checked ? "YES" : "NO";
     data.requestTopicLabel = getTopicLabel(data.requestTopic);
     data.factoryCaseLabel = getFactoryCaseLabel(data.factoryCaseType);
 
@@ -119,7 +121,12 @@
         "offcycleDeliveryDate",
         "offcycleCrates",
         "offcycleAmount",
+        "offcycleHasPo",
+        "offcyclePoImage",
       ]);
+    }
+    if (data.requestTopic === "OFF_CYCLE_DELIVERY" && data.offcycleHasPo !== "YES") {
+      clearKeys(data, ["offcyclePoImage"]);
     }
 
     if (data.requestTopic !== "FACTORY_CAR") {
@@ -229,6 +236,10 @@
         setFieldError("offcycleAmount", "ยอดเงินต้องไม่ติดลบ");
         return { message: "ยอดเงินไม่ถูกต้อง" };
       }
+      if (data.offcycleHasPo === "YES" && !isValidUploadFile(data.offcyclePoImage)) {
+        setFieldError("offcyclePoImage", "กรุณาแนบรูป PO ให้ถูกต้อง (png/jpg/webp ไม่เกิน 3MB)");
+        return { message: "กรุณาแนบรูป PO ให้ถูกต้อง" };
+      }
     }
 
     if (data.requestTopic === "FACTORY_CAR") {
@@ -308,11 +319,19 @@
   function updateConditionalBlocks() {
     const topic = form.elements.requestTopic.value;
     const caseType = form.elements.factoryCaseType.value;
+    const hasPo = form.elements.offcycleHasPo.checked;
+    const offcyclePoInput = form.elements.offcyclePoImage;
 
     setBlockVisible(factoryCaseBlock, topic === "FACTORY_CAR");
     setBlockVisible(offCycleBlock, topic === "OFF_CYCLE_DELIVERY");
+    setBlockVisible(offcyclePoBlock, topic === "OFF_CYCLE_DELIVERY" && hasPo);
     setBlockVisible(factoryDeliveryBlock, topic === "FACTORY_CAR" && caseType === "FACTORY_DELIVERY_DOCS");
     setBlockVisible(factoryShuttleBlock, topic === "FACTORY_CAR" && caseType === "FACTORY_STAFF_SHUTTLE");
+
+    if (!(topic === "OFF_CYCLE_DELIVERY" && hasPo) && offcyclePoInput) {
+      offcyclePoInput.value = "";
+      clearFieldError("offcyclePoImage");
+    }
   }
 
   function setBlockVisible(blockEl, visible) {

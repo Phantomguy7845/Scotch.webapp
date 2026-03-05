@@ -157,6 +157,20 @@
                 <input name="offcycleAmount" type="number" min="0" step="0.01" />
                 <p class="field-error" data-error-for="offcycleAmount"></p>
               </label>
+
+              <label class="col-span-2 check-row">
+                <input name="offcycleHasPo" type="checkbox" />
+                <span>มี PO</span>
+              </label>
+            </div>
+
+            <div id="offcyclePoBlock" class="conditional-block hidden">
+              <label class="col-span-2">
+                <span>แนบรูป PO *</span>
+                <input name="offcyclePoImage" type="file" accept="image/png,image/jpeg,image/webp" />
+                <small class="field-hint">รองรับไฟล์ภาพ .png .jpg .webp (ไม่เกิน 3MB)</small>
+                <p class="field-error" data-error-for="offcyclePoImage"></p>
+              </label>
             </div>
           </section>
 
