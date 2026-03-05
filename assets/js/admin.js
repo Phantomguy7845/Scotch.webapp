@@ -1,52 +1,157 @@
 (function () {
   const config = window.APP_CONFIG || {};
-  const STORAGE_KEY = "scotch_webapps1_admin_key";
+  const AUTH_STORAGE_KEY = "scotch_webapps1_admin_auth";
+
   const listEl = document.getElementById("requestList");
   const countEl = document.getElementById("requestCount");
   const messageEl = document.getElementById("adminMessage");
-  const adminKeyInput = document.getElementById("adminKeyInput");
   const approvedByInput = document.getElementById("approvedByInput");
-  const saveAdminKeyBtn = document.getElementById("saveAdminKeyBtn");
   const refreshBtn = document.getElementById("refreshBtn");
   const logoutAdminBtn = document.getElementById("logoutAdminBtn");
 
+  const loginOverlay = document.getElementById("adminLoginOverlay");
+  const loginNameInput = document.getElementById("adminLoginNameInput");
+  const loginPassInput = document.getElementById("adminLoginPassInput");
+  const loginBtn = document.getElementById("adminLoginBtn");
+  const loginMessageEl = document.getElementById("adminLoginMessage");
+
+  let authSession = null;
+
   if (!listEl) return;
 
-  adminKeyInput.value = localStorage.getItem(STORAGE_KEY) || config.adminKey || "";
-  preventAdminKeyCopy(adminKeyInput);
-  adminKeyInput.addEventListener("input", persistAdminKey);
-
-  saveAdminKeyBtn.addEventListener("click", () => {
-    localStorage.setItem(STORAGE_KEY, adminKeyInput.value.trim());
-    showMessage("Admin key saved in browser storage.", "success");
-  });
-
-  refreshBtn.addEventListener("click", loadRequests);
+  if (refreshBtn) refreshBtn.addEventListener("click", loadRequests);
   if (logoutAdminBtn) logoutAdminBtn.addEventListener("click", exitAdminMode);
-  loadRequests();
+  if (loginBtn) loginBtn.addEventListener("click", loginWithForm);
+  if (loginNameInput) {
+    loginNameInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loginWithForm();
+      }
+    });
+  }
+  if (loginPassInput) {
+    loginPassInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loginWithForm();
+      }
+    });
+  }
+
+  bootstrap();
+
+  async function bootstrap() {
+    if (!isApiConfigured()) {
+      setAuthenticated(false);
+      renderEmpty("Set assets/js/config.js with API URL before use.");
+      showMessage("API URL is not configured.", "error");
+      setLoginMessage("API URL is not configured.", "error");
+      return;
+    }
+
+    const storedAuth = readStoredAuth();
+    if (!storedAuth) {
+      setAuthenticated(false);
+      renderEmpty("Please sign in as admin.");
+      return;
+    }
+
+    if (loginNameInput) loginNameInput.value = storedAuth.adminName;
+    if (loginPassInput) loginPassInput.value = storedAuth.adminPass;
+    await tryLogin(storedAuth, true);
+  }
+
+  async function loginWithForm() {
+    const credentials = {
+      adminName: loginNameInput ? loginNameInput.value.trim() : "",
+      adminPass: loginPassInput ? loginPassInput.value.trim() : "",
+    };
+    if (!credentials.adminName || !credentials.adminPass) {
+      setLoginMessage("กรุณากรอก Admin name และ Password", "error");
+      return;
+    }
+    await tryLogin(credentials, false);
+  }
+
+  async function tryLogin(credentials, silent) {
+    setLoginBusy(true);
+    clearMessage();
+    if (!silent) setLoginMessage("", "");
+
+    try {
+      const validation = await validateAdmin(credentials);
+      if (!validation.ok) {
+        throw new Error(validation.error || "Invalid admin login.");
+      }
+
+      authSession = {
+        adminName: credentials.adminName.trim(),
+        adminPass: credentials.adminPass.trim(),
+        adminId: validation.adminId || "",
+      };
+      writeStoredAuth(authSession);
+      setAuthenticated(true);
+
+      if (approvedByInput) {
+        const current = approvedByInput.value.trim();
+        if (!current || current === "Fleet Admin") {
+          approvedByInput.value = authSession.adminName;
+        }
+      }
+
+      setLoginMessage("", "");
+      if (!silent) {
+        showMessage("Login success: " + authSession.adminName, "success");
+      }
+      await loadRequests();
+      return true;
+    } catch (error) {
+      authSession = null;
+      clearStoredAuth();
+      setAuthenticated(false);
+      renderEmpty("Please sign in as admin.");
+      if (!silent) {
+        setLoginMessage(error.message || "Login failed.", "error");
+      } else {
+        setLoginMessage("", "");
+      }
+      return false;
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  async function validateAdmin(credentials) {
+    const url = new URL(config.apiBaseUrl);
+    url.searchParams.set("action", "validateAdmin");
+    url.searchParams.set("adminName", credentials.adminName);
+    url.searchParams.set("adminPass", credentials.adminPass);
+
+    const response = await fetch(url.toString());
+    return response.json();
+  }
 
   async function loadRequests() {
     clearMessage();
 
-    const adminKey = getAdminKey();
-    if (!isApiConfigured()) {
-      renderEmpty("Set assets/js/config.js with API URL before use.");
-      showMessage("API URL is not configured.", "error");
-      return;
-    }
-    if (!adminKey) {
-      renderEmpty("Enter and save admin key, then refresh.");
-      showMessage("Admin key is required.", "error");
+    if (!authSession) {
+      setAuthenticated(false);
+      renderEmpty("Please sign in as admin.");
+      showMessage("Admin login is required.", "error");
       return;
     }
 
     try {
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = "Loading...";
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "Loading...";
+      }
 
       const url = new URL(config.apiBaseUrl);
       url.searchParams.set("action", "listRequests");
-      url.searchParams.set("adminKey", adminKey);
+      url.searchParams.set("adminName", authSession.adminName);
+      url.searchParams.set("adminPass", authSession.adminPass);
 
       const response = await fetch(url.toString());
       const data = await response.json();
@@ -57,9 +162,14 @@
     } catch (error) {
       renderEmpty("Failed to load requests.");
       showMessage(error.message || "Unexpected error while loading.", "error");
+      if (String(error.message || "").toLowerCase().indexOf("invalid admin") > -1) {
+        exitAdminMode();
+      }
     } finally {
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = "Refresh requests";
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "Refresh requests";
+      }
     }
   }
 
@@ -251,9 +361,9 @@
   }
 
   async function handleDecisionAction(options) {
-    const adminKey = getAdminKey();
-    if (!adminKey) {
-      showMessage("Admin key is required.", "error");
+    if (!authSession) {
+      showMessage("Admin login is required.", "error");
+      setAuthenticated(false);
       return;
     }
 
@@ -264,7 +374,7 @@
       return;
     }
 
-    const approvedBy = approvedByInput.value.trim() || "Fleet Admin";
+    const approvedBy = approvedByInput && approvedByInput.value.trim() ? approvedByInput.value.trim() : authSession.adminName;
     if (!window.confirm(options.decisionText + "คำขอ " + options.requestId + " และส่งอีเมลแจ้งผลใช่หรือไม่?")) {
       return;
     }
@@ -283,10 +393,11 @@
 
       const response = await postToApi({
         action: options.action,
-        adminKey,
+        adminName: authSession.adminName,
+        adminPass: authSession.adminPass,
         requestId: options.requestId,
-        approvedBy,
-        remark,
+        approvedBy: approvedBy,
+        remark: remark,
       });
 
       if (!response.ok) {
@@ -301,6 +412,9 @@
       shouldRestoreButtons = false;
     } catch (error) {
       showMessage(error.message || "Unexpected error while updating request.", "error");
+      if (String(error.message || "").toLowerCase().indexOf("invalid admin") > -1) {
+        exitAdminMode();
+      }
     } finally {
       if (shouldRestoreButtons) {
         buttons.forEach((btn, index) => {
@@ -320,44 +434,66 @@
     return value.trim();
   }
 
+  function setAuthenticated(isAuthenticated) {
+    if (loginOverlay) loginOverlay.classList.toggle("is-hidden", isAuthenticated);
+    if (refreshBtn) refreshBtn.disabled = !isAuthenticated;
+  }
+
+  function setLoginBusy(isBusy) {
+    if (loginBtn) {
+      loginBtn.disabled = isBusy;
+      loginBtn.textContent = isBusy ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบแอดมิน";
+    }
+  }
+
+  function setLoginMessage(text, type) {
+    if (!loginMessageEl) return;
+    loginMessageEl.textContent = text || "";
+    loginMessageEl.classList.remove("success", "error");
+    if (type) loginMessageEl.classList.add(type);
+  }
+
   function renderEmpty(text) {
     listEl.innerHTML = `<p class="empty-state">${escapeHtml(text)}</p>`;
     countEl.textContent = "0 records";
   }
 
-  function getAdminKey() {
-    return adminKeyInput.value.trim();
+  function readStoredAuth() {
+    try {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      const adminName = String(parsed.adminName || "").trim();
+      const adminPass = String(parsed.adminPass || "").trim();
+      if (!adminName || !adminPass) return null;
+      return { adminName, adminPass };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeStoredAuth(auth) {
+    localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        adminName: auth.adminName,
+        adminPass: auth.adminPass,
+      }),
+    );
+  }
+
+  function clearStoredAuth() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
   }
 
   function exitAdminMode() {
-    localStorage.removeItem(STORAGE_KEY);
-    adminKeyInput.value = "";
-    renderEmpty("Logged out from admin mode. Enter admin key to continue.");
-    showMessage("Admin key removed from this browser.", "success");
-  }
-
-  function persistAdminKey() {
-    const value = adminKeyInput.value.trim();
-    if (!value) {
-      localStorage.removeItem(STORAGE_KEY);
-      return;
-    }
-    localStorage.setItem(STORAGE_KEY, value);
-  }
-
-  function preventAdminKeyCopy(inputEl) {
-    if (!inputEl) return;
-    const blockedEvents = ["copy", "cut", "contextmenu", "dragstart"];
-    blockedEvents.forEach((eventName) => {
-      inputEl.addEventListener(eventName, (event) => {
-        event.preventDefault();
-      });
-    });
-    inputEl.addEventListener("keydown", (event) => {
-      if ((event.ctrlKey || event.metaKey) && (event.key === "c" || event.key === "x")) {
-        event.preventDefault();
-      }
-    });
+    authSession = null;
+    clearStoredAuth();
+    if (loginPassInput) loginPassInput.value = "";
+    setAuthenticated(false);
+    renderEmpty("Logged out from admin mode. Please sign in again.");
+    showMessage("Logged out from admin mode.", "success");
   }
 
   function isApiConfigured() {

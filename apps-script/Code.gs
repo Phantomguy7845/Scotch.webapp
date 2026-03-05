@@ -2,6 +2,7 @@ const CONFIG = {
   APP_NAME: "Scotch webapps1",
   TIME_ZONE: "Asia/Bangkok",
   SHEET_NAME: "Requests",
+  ADMIN_SHEET_NAME: "Admin",
   SPREADSHEET_ID: "1CPW5iA9umBwr8eTxOivHy67gQPUbG2EQacrTOQW03oc",
   ADMIN_KEY: "1CPW5iA9umBwr8eTxOivHy67gQPUbG2EQacrTOQW03oc",
   UPLOAD_FOLDER_ID: "1LDNViyPm75ByXeJAng-F99VESi-vqrQg",
@@ -87,8 +88,13 @@ function doGet(e) {
     }
 
     if (action === "listrequests") {
-      verifyAdminKey(e.parameter.adminKey);
+      verifyAdminCredentials(e.parameter.adminName, e.parameter.adminPass);
       return jsonResponse({ ok: true, requests: readRequests() });
+    }
+
+    if (action === "validateadmin") {
+      const admin = verifyAdminCredentials(e.parameter.adminName, e.parameter.adminPass);
+      return jsonResponse({ ok: true, adminId: admin.adminId, adminName: admin.adminName });
     }
 
     return jsonResponse({ ok: false, error: "Unknown action: " + action });
@@ -220,11 +226,11 @@ function rejectRequest(payload) {
 }
 
 function handleDecision(payload, nextStatus) {
-  verifyAdminKey(payload.adminKey);
+  const admin = verifyAdminCredentials(payload.adminName, payload.adminPass);
   const requestId = safeText(payload.requestId);
   if (!requestId) throw new Error("requestId is required.");
 
-  const decidedBy = safeText(payload.approvedBy || payload.decidedBy || "Fleet Admin");
+  const decidedBy = safeText(payload.approvedBy || payload.decidedBy || admin.adminName || "Fleet Admin");
   const remark = safeText(payload.remark);
   if (!remark) throw new Error("remark is required.");
 
@@ -806,10 +812,58 @@ function parsePayload(e) {
   throw new Error("Missing payload.");
 }
 
-function verifyAdminKey(inputKey) {
-  if (safeText(inputKey) !== CONFIG.ADMIN_KEY) {
-    throw new Error("Invalid admin key.");
+function verifyAdminCredentials(adminNameInput, adminPassInput) {
+  const adminName = safeText(adminNameInput);
+  const adminPass = safeText(adminPassInput);
+  if (!adminName || !adminPass) {
+    throw new Error("Invalid admin login.");
   }
+
+  const sheet = getAdminSheet();
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    throw new Error("Admin sheet has no account.");
+  }
+
+  const headerRow = values[0].map(function (value) {
+    return normalizeAdminHeader(value);
+  });
+  const idIndex = headerRow.indexOf("admin_id");
+  const nameIndex = headerRow.indexOf("admin_name");
+  const passIndex = headerRow.indexOf("admin_pass");
+
+  if (nameIndex === -1 || passIndex === -1) {
+    throw new Error("Admin sheet headers missing admin_Name/admin_Pass.");
+  }
+
+  for (let i = 1; i < values.length; i += 1) {
+    const rowName = safeText(values[i][nameIndex]);
+    const rowPass = safeText(values[i][passIndex]);
+    if (!rowName || !rowPass) continue;
+
+    if (rowName === adminName && rowPass === adminPass) {
+      return {
+        adminId: idIndex > -1 ? safeText(values[i][idIndex]) : "",
+        adminName: rowName,
+      };
+    }
+  }
+
+  throw new Error("Invalid admin login.");
+}
+
+function getAdminSheet() {
+  const spreadsheet = getSpreadsheet();
+  const adminSheetName = safeText(CONFIG.ADMIN_SHEET_NAME || "Admin");
+  const sheet = spreadsheet.getSheetByName(adminSheetName);
+  if (!sheet) {
+    throw new Error("Admin sheet not found: " + adminSheetName);
+  }
+  return sheet;
+}
+
+function normalizeAdminHeader(value) {
+  return safeText(value).toLowerCase();
 }
 
 function requireField(data, field) {

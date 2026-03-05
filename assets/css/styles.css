@@ -773,6 +773,42 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.admin-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(7, 24, 38, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.admin-login-overlay.is-hidden {
+  display: none;
+}
+
+.admin-login-card {
+  width: min(460px, 100%);
+  border-radius: 16px;
+  border: 1px solid #dce3ee;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(16, 23, 37, 0.22);
+  padding: 20px;
+}
+
+.admin-login-card h2 {
+  margin: 6px 0 4px;
+  font-family: "Bricolage Grotesque", sans-serif;
+}
+
+.admin-login-copy {
+  margin: 0 0 14px;
+  color: #4f5a73;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .admin-tools {
   margin-bottom: 18px;
 }
@@ -780,7 +816,7 @@ button:disabled {
 .control-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(1, minmax(0, 1fr));
 }
 
 .admin-actions {

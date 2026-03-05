@@ -13,6 +13,29 @@
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body>
+    <div id="adminLoginOverlay" class="admin-login-overlay">
+      <section class="admin-login-card" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
+        <p class="hero-kicker">Scotch Fleet Service</p>
+        <h2 id="adminLoginTitle">Admin Login</h2>
+        <p class="admin-login-copy">
+          Sign in with <strong>admin_Name</strong> and <strong>admin_Pass</strong> from the
+          <strong>Admin</strong> sheet.
+        </p>
+        <div class="form-stack">
+          <label>
+            <span>Admin name *</span>
+            <input id="adminLoginNameInput" type="text" autocomplete="username" />
+          </label>
+          <label>
+            <span>Password *</span>
+            <input id="adminLoginPassInput" type="password" autocomplete="current-password" />
+          </label>
+          <button id="adminLoginBtn" type="button">เข้าสู่ระบบแอดมิน</button>
+          <p id="adminLoginMessage" class="form-message" aria-live="polite"></p>
+        </div>
+      </section>
+    </div>
+
     <main class="page page-admin">
       <section class="hero hero-compact">
         <p class="hero-kicker">Scotch Fleet Service</p>
@@ -26,18 +49,12 @@
       <section class="card admin-tools">
         <div class="control-grid">
           <label>
-            <span>Admin key *</span>
-            <input id="adminKeyInput" type="password" placeholder="Enter your admin key" />
-          </label>
-
-          <label>
             <span>Decided by</span>
             <input id="approvedByInput" type="text" placeholder="Admin name" value="Fleet Admin" />
           </label>
         </div>
 
         <div class="admin-actions">
-          <button id="saveAdminKeyBtn" type="button">Save key</button>
           <button id="refreshBtn" type="button" class="button-secondary">Refresh requests</button>
           <button id="logoutAdminBtn" type="button" class="button-secondary">ออกจากโหมดแอดมิน</button>
           <p id="adminMessage" class="form-message" aria-live="polite"></p>
