@@ -2,8 +2,36 @@
   const config = window.APP_CONFIG || {};
   const AUTH_STORAGE_KEY = "scotch_webapps1_admin_auth";
 
-  const listEl = document.getElementById("requestList");
-  const countEl = document.getElementById("requestCount");
+  const STATUS_PENDING = "PENDING";
+  const STATUS_APPROVED = "APPROVED";
+  const STATUS_REJECTED = "REJECTED";
+
+  const VIEW_PENDING = "pending";
+  const VIEW_HISTORY = "history";
+
+  const TOPIC_OFF_CYCLE = "OFF_CYCLE_DELIVERY";
+  const CASE_FACTORY_DELIVERY = "FACTORY_DELIVERY_DOCS";
+  const CASE_FACTORY_SHUTTLE = "FACTORY_STAFF_SHUTTLE";
+
+  const pendingPanel = document.getElementById("pendingPanel");
+  const historyPanel = document.getElementById("historyPanel");
+  const pendingListEl = document.getElementById("pendingList");
+  const historyListEl = document.getElementById("historyList");
+  const pendingCountEl = document.getElementById("pendingCount");
+  const historyCountEl = document.getElementById("historyCount");
+
+  const pendingTabBtn = document.getElementById("pendingTabBtn");
+  const historyTabBtn = document.getElementById("historyTabBtn");
+
+  const pendingSearchInput = document.getElementById("pendingSearchInput");
+  const pendingTypeFilter = document.getElementById("pendingTypeFilter");
+  const pendingSortOrder = document.getElementById("pendingSortOrder");
+
+  const historySearchInput = document.getElementById("historySearchInput");
+  const historyTypeFilter = document.getElementById("historyTypeFilter");
+  const historySortBy = document.getElementById("historySortBy");
+  const historySortOrder = document.getElementById("historySortOrder");
+
   const messageEl = document.getElementById("adminMessage");
   const adminNameLabel = document.getElementById("adminNameLabel");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -16,37 +44,60 @@
   const loginMessageEl = document.getElementById("adminLoginMessage");
 
   let authSession = null;
+  let allRequests = [];
+  let activeView = VIEW_PENDING;
 
-  if (!listEl) return;
+  if (!pendingListEl || !historyListEl) return;
 
-  if (refreshBtn) refreshBtn.addEventListener("click", loadRequests);
-  if (logoutAdminBtn) logoutAdminBtn.addEventListener("click", exitAdminMode);
-  if (loginBtn) loginBtn.addEventListener("click", loginWithForm);
-  if (loginNameInput) {
-    loginNameInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        loginWithForm();
-      }
-    });
-  }
-  if (loginPassInput) {
-    loginPassInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        loginWithForm();
-      }
-    });
-  }
-
+  bindEvents();
   bootstrap();
 
+  function bindEvents() {
+    if (refreshBtn) refreshBtn.addEventListener("click", loadRequests);
+    if (logoutAdminBtn) logoutAdminBtn.addEventListener("click", exitAdminMode);
+
+    if (pendingTabBtn) pendingTabBtn.addEventListener("click", () => setActiveView(VIEW_PENDING));
+    if (historyTabBtn) historyTabBtn.addEventListener("click", () => setActiveView(VIEW_HISTORY));
+
+    if (loginBtn) loginBtn.addEventListener("click", loginWithForm);
+    if (loginNameInput) {
+      loginNameInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          loginWithForm();
+        }
+      });
+    }
+    if (loginPassInput) {
+      loginPassInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          loginWithForm();
+        }
+      });
+    }
+
+    bindFilterEvents();
+  }
+
+  function bindFilterEvents() {
+    if (pendingSearchInput) pendingSearchInput.addEventListener("input", renderAllViews);
+    if (pendingTypeFilter) pendingTypeFilter.addEventListener("change", renderAllViews);
+    if (pendingSortOrder) pendingSortOrder.addEventListener("change", renderAllViews);
+
+    if (historySearchInput) historySearchInput.addEventListener("input", renderAllViews);
+    if (historyTypeFilter) historyTypeFilter.addEventListener("change", renderAllViews);
+    if (historySortBy) historySortBy.addEventListener("change", renderAllViews);
+    if (historySortOrder) historySortOrder.addEventListener("change", renderAllViews);
+  }
+
   async function bootstrap() {
+    setActiveView(VIEW_PENDING);
     setAdminNameDisplay("");
 
     if (!isApiConfigured()) {
       setAuthenticated(false);
-      renderEmpty("Set assets/js/config.js with API URL before use.");
+      renderSignedOutState("Set assets/js/config.js with API URL before use.");
       showMessage("API URL is not configured.", "error");
       setLoginMessage("API URL is not configured.", "error");
       return;
@@ -55,7 +106,7 @@
     const storedAuth = readStoredAuth();
     if (!storedAuth) {
       setAuthenticated(false);
-      renderEmpty("Please sign in as admin.");
+      renderSignedOutState("Please sign in as admin.");
       return;
     }
 
@@ -69,10 +120,12 @@
       adminName: loginNameInput ? loginNameInput.value.trim() : "",
       adminPass: loginPassInput ? loginPassInput.value.trim() : "",
     };
+
     if (!credentials.adminName || !credentials.adminPass) {
       setLoginMessage("กรุณากรอก Admin name และ Password", "error");
       return;
     }
+
     await tryLogin(credentials, false);
   }
 
@@ -100,6 +153,7 @@
       if (!silent) {
         showMessage("Login success: " + authSession.adminName, "success");
       }
+
       await loadRequests();
       return true;
     } catch (error) {
@@ -107,7 +161,8 @@
       clearStoredAuth();
       setAdminNameDisplay("");
       setAuthenticated(false);
-      renderEmpty("Please sign in as admin.");
+      renderSignedOutState("Please sign in as admin.");
+
       if (!silent) {
         setLoginMessage(error.message || "Login failed.", "error");
       } else {
@@ -134,7 +189,7 @@
 
     if (!authSession) {
       setAuthenticated(false);
-      renderEmpty("Please sign in as admin.");
+      renderSignedOutState("Please sign in as admin.");
       showMessage("Admin login is required.", "error");
       return;
     }
@@ -154,11 +209,15 @@
       const data = await response.json();
       if (!data.ok) throw new Error(data.error || "Could not load requests.");
 
-      renderRequests(data.requests || []);
+      allRequests = normalizeRequests(data.requests || []);
+      renderAllViews();
       showMessage("Requests loaded.", "success");
     } catch (error) {
-      renderEmpty("Failed to load requests.");
+      allRequests = [];
+      renderPanelEmpty(pendingListEl, pendingCountEl, "Failed to load requests.");
+      renderPanelEmpty(historyListEl, historyCountEl, "Failed to load requests.");
       showMessage(error.message || "Unexpected error while loading.", "error");
+
       if (String(error.message || "").toLowerCase().indexOf("invalid admin") > -1) {
         exitAdminMode();
       }
@@ -170,161 +229,449 @@
     }
   }
 
-  function renderRequests(requests) {
-    const sorted = [...requests].sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
-    countEl.textContent = sorted.length + " records";
+  function normalizeRequests(requests) {
+    return (Array.isArray(requests) ? requests : []).map((request) => {
+      const item = request && typeof request === "object" ? { ...request } : {};
+      item.status = normalizeStatus(item.status);
+      return item;
+    });
+  }
 
-    if (!sorted.length) {
-      renderEmpty("No records found.");
+  function renderAllViews() {
+    const pendingSource = allRequests.filter((request) => normalizeStatus(request.status) === STATUS_PENDING);
+    const historySource = allRequests.filter((request) => {
+      const status = normalizeStatus(request.status);
+      return status === STATUS_APPROVED || status === STATUS_REJECTED;
+    });
+
+    const pendingFiltered = sortRequests(
+      applyCommonFilters(
+        pendingSource,
+        pendingSearchInput ? pendingSearchInput.value : "",
+        pendingTypeFilter ? pendingTypeFilter.value : "ALL",
+      ),
+      pendingSortOrder ? pendingSortOrder.value : "oldest",
+      "submitted",
+    );
+
+    const historyFiltered = sortRequests(
+      applyCommonFilters(
+        historySource,
+        historySearchInput ? historySearchInput.value : "",
+        historyTypeFilter ? historyTypeFilter.value : "ALL",
+      ),
+      historySortOrder ? historySortOrder.value : "oldest",
+      historySortBy ? historySortBy.value : "submitted",
+    );
+
+    renderRequestList({
+      listEl: pendingListEl,
+      countEl: pendingCountEl,
+      requests: pendingFiltered,
+      totalCount: pendingSource.length,
+      emptyText: "No pending requests.",
+      historyMode: false,
+    });
+
+    renderRequestList({
+      listEl: historyListEl,
+      countEl: historyCountEl,
+      requests: historyFiltered,
+      totalCount: historySource.length,
+      emptyText: "No approved/rejected history yet.",
+      historyMode: true,
+    });
+  }
+
+  function renderRequestList(options) {
+    const listEl = options.listEl;
+    const countEl = options.countEl;
+    const requests = Array.isArray(options.requests) ? options.requests : [];
+    const totalCount = Number(options.totalCount || 0);
+
+    setCountText(countEl, requests.length, totalCount);
+
+    if (!requests.length) {
+      listEl.innerHTML = `<p class="empty-state">${escapeHtml(options.emptyText || "No records found.")}</p>`;
       return;
     }
 
     listEl.innerHTML = "";
-    sorted.forEach((request) => {
-      const item = document.createElement("article");
-      item.className = "request-item";
-
-      const status = (request.status || "PENDING").toUpperCase();
-      let statusClass = "pending";
-      if (status === "APPROVED") statusClass = "approved";
-      if (status === "REJECTED") statusClass = "rejected";
-
-      item.innerHTML = `
-        <div class="request-item-head">
-          <h3 class="request-id">${escapeHtml(request.requestId || "-")}</h3>
-          <span class="status-pill ${statusClass}">${escapeHtml(status)}</span>
-        </div>
-        <div class="request-meta">
-          ${renderCommonDetails(request)}
-          ${renderCaseDetails(request)}
-        </div>
-      `;
-
-      if (status === "PENDING") {
-        const actions = document.createElement("div");
-        actions.className = "request-actions";
-
-        const approveBtn = document.createElement("button");
-        approveBtn.type = "button";
-        approveBtn.textContent = "อนุมัติ + ส่งเมล";
-
-        const rejectBtn = document.createElement("button");
-        rejectBtn.type = "button";
-        rejectBtn.className = "button-danger";
-        rejectBtn.textContent = "ไม่อนุมัติ + ส่งเมล";
-
-        approveBtn.addEventListener("click", () =>
-          approveRequest(request.requestId, approveBtn, rejectBtn),
-        );
-        rejectBtn.addEventListener("click", () => rejectRequest(request.requestId, approveBtn, rejectBtn));
-
-        actions.appendChild(approveBtn);
-        actions.appendChild(rejectBtn);
-        item.appendChild(actions);
-      }
-
-      listEl.appendChild(item);
+    requests.forEach((request) => {
+      listEl.appendChild(renderRequestCard(request, options.historyMode));
     });
   }
 
-  function renderCommonDetails(request) {
-    return [
-      detailRow("หัวข้อ", request.requestTopicLabel || request.requestTopic || "-"),
-      detailRow("กรณี", request.factoryCaseLabel || "-"),
-      detailRow("ผู้ขอใช้", request.requesterName || "-"),
-      detailRow("เบอร์ติดต่อผู้ขอ", request.requesterPhone || "-"),
-      detailRow("อีเมลติดต่อ", request.contactEmail || "-"),
-      detailRow("ส่งคำขอเมื่อ", request.submittedAt || "-"),
-      detailRow("อนุมัติเมื่อ", request.approvedAt || "-"),
-      detailRow("อนุมัติโดย", request.approvedBy || "-"),
-      detailRow("ไม่อนุมัติเมื่อ", request.rejectedAt || "-"),
-      detailRow("ไม่อนุมัติโดย", request.rejectedBy || "-"),
-      detailRow("Remark", request.decisionRemark || "-"),
-      detailRow("สถานะอีเมล", request.emailStatus || "-"),
-    ].join("");
+  function setCountText(countEl, filteredCount, totalCount) {
+    if (!countEl) return;
+    if (!totalCount) {
+      countEl.textContent = "0 records";
+      return;
+    }
+
+    if (filteredCount === totalCount) {
+      countEl.textContent = totalCount + " records";
+      return;
+    }
+
+    countEl.textContent = filteredCount + " / " + totalCount + " records";
   }
 
-  function renderCaseDetails(request) {
-    if (request.requestTopic === "OFF_CYCLE_DELIVERY") {
-      return [
-        detailRow("ชื่อห้าง", request.offcycleStoreName || "-"),
-        detailRow("วันที่ต้องการจัดส่ง", request.offcycleDeliveryDate || "-"),
-        detailRow("จำนวนลังสินค้า", request.offcycleCrates || "-"),
-        detailRow("ยอดเงิน", request.offcycleAmount || "-"),
-        detailRow("มี PO", request.offcycleHasPo === "YES" ? "มี" : "ไม่มี"),
-        attachmentRow(
+  function renderRequestCard(request, historyMode) {
+    const item = document.createElement("article");
+    const status = normalizeStatus(request.status);
+    const statusClass = statusToClass(status);
+
+    const topicLabel = getTopicLabel(request);
+    const caseLabel = getCaseLabel(request);
+    const submittedAt = request.submittedAt || "-";
+
+    const decisionAt =
+      status === STATUS_APPROVED
+        ? request.approvedAt || "-"
+        : status === STATUS_REJECTED
+          ? request.rejectedAt || "-"
+          : "-";
+
+    const decisionBy =
+      status === STATUS_APPROVED
+        ? request.approvedBy || "-"
+        : status === STATUS_REJECTED
+          ? request.rejectedBy || "-"
+          : "-";
+
+    item.className = "request-item request-item-" + statusClass;
+
+    item.innerHTML =
+      '<div class="request-item-head">' +
+      '<div class="request-head-main">' +
+      '<h3 class="request-id">' + escapeHtml(request.requestId || "-") + "</h3>" +
+      '<p class="request-caption">' +
+      escapeHtml(topicLabel) +
+      (caseLabel ? "<span> | </span>" + escapeHtml(caseLabel) : "") +
+      "</p>" +
+      "</div>" +
+      '<span class="status-pill ' + statusClass + '">' + escapeHtml(status) + "</span>" +
+      "</div>" +
+      '<div class="request-time-row">' +
+      '<span class="time-chip"><strong>ส่งคำขอ:</strong> ' + escapeHtml(submittedAt) + "</span>" +
+      (status !== STATUS_PENDING
+        ? '<span class="time-chip"><strong>' +
+          (status === STATUS_APPROVED ? "อนุมัติเมื่อ" : "ไม่อนุมัติเมื่อ") +
+          ":</strong> " +
+          escapeHtml(decisionAt) +
+          "</span>"
+        : "") +
+      "</div>" +
+      '<div class="request-section-grid">' +
+      renderInfoBlock("ผู้ร้องขอ", [
+        { label: "ผู้ขอใช้", value: request.requesterName || "-" },
+        { label: "เบอร์ติดต่อ", value: request.requesterPhone || "-" },
+        { label: "อีเมล", value: request.contactEmail || "-" },
+      ]) +
+      renderCaseInfoBlock(request) +
+      renderAttachmentBlock(request) +
+      (historyMode
+        ? renderInfoBlock("ผลการพิจารณา", [
+            { label: "พิจารณาโดย", value: decisionBy },
+            { label: "Remark", value: request.decisionRemark || "-" },
+            { label: "สถานะอีเมล", value: request.emailStatus || "-" },
+          ])
+        : "") +
+      "</div>";
+
+    if (!historyMode && status === STATUS_PENDING) {
+      const actions = document.createElement("div");
+      actions.className = "request-actions";
+
+      const approveBtn = document.createElement("button");
+      approveBtn.type = "button";
+      approveBtn.textContent = "อนุมัติ + ส่งเมล";
+
+      const rejectBtn = document.createElement("button");
+      rejectBtn.type = "button";
+      rejectBtn.className = "button-danger";
+      rejectBtn.textContent = "ไม่อนุมัติ + ส่งเมล";
+
+      approveBtn.addEventListener("click", () => approveRequest(request.requestId, approveBtn, rejectBtn));
+      rejectBtn.addEventListener("click", () => rejectRequest(request.requestId, approveBtn, rejectBtn));
+
+      actions.appendChild(approveBtn);
+      actions.appendChild(rejectBtn);
+      item.appendChild(actions);
+    }
+
+    return item;
+  }
+
+  function renderCaseInfoBlock(request) {
+    if (request.requestTopic === TOPIC_OFF_CYCLE) {
+      return renderInfoBlock("รายละเอียดคำขอ", [
+        { label: "ชื่อห้าง", value: request.offcycleStoreName || "-" },
+        { label: "วันที่ต้องการจัดส่ง", value: request.offcycleDeliveryDate || "-" },
+        { label: "จำนวนลังสินค้า", value: request.offcycleCrates || "-" },
+        { label: "ยอดเงิน", value: request.offcycleAmount || "-" },
+        { label: "มี PO", value: request.offcycleHasPo === "YES" ? "มี" : "ไม่มี" },
+      ]);
+    }
+
+    if (request.factoryCaseType === CASE_FACTORY_DELIVERY) {
+      return renderInfoBlock("รายละเอียดคำขอ", [
+        { label: "ชื่องาน", value: request.factoryJobName || "-" },
+        { label: "วันที่จัดส่ง", value: request.factoryDeliveryDate || "-" },
+        { label: "เวลาจัดส่ง", value: request.factoryDeliveryTime || "-" },
+        { label: "สถานที่จัดส่ง", value: request.factoryDeliveryLocation || "-" },
+        { label: "Google Map", value: request.factoryDeliveryMapUrl || "-", allowUrl: true },
+        { label: "เบอร์ติดต่อหน้างาน", value: request.factoryReceiverPhone || "-" },
+        { label: "รายละเอียดเอกสาร", value: request.factoryTempDocumentRef || "-" },
+        { label: "รายละเอียด Reservation", value: request.factoryReservationRef || "-" },
+      ]);
+    }
+
+    if (request.factoryCaseType === CASE_FACTORY_SHUTTLE) {
+      return renderInfoBlock("รายละเอียดคำขอ", [
+        { label: "จำนวนผู้โดยสาร", value: request.shuttlePassengers || "-" },
+        { label: "วันที่เดินทาง", value: request.shuttleTravelDate || "-" },
+        { label: "เวลาเดินทาง", value: request.shuttleTravelTime || "-" },
+        { label: "รอรับกลับ", value: shuttleWaitLabel(request.shuttleReturnWait) },
+        { label: "สถานที่", value: request.shuttleLocation || "-" },
+        { label: "Google Map", value: request.shuttleMapUrl || "-", allowUrl: true },
+      ]);
+    }
+
+    return renderInfoBlock("รายละเอียดคำขอ", [{ label: "ข้อมูล", value: "-" }]);
+  }
+
+  function renderAttachmentBlock(request) {
+    const pairs = [];
+
+    if (request.requestTopic === TOPIC_OFF_CYCLE) {
+      pairs.push(
+        attachmentPair(
           "ไฟล์ PO",
           request.offcyclePoImageUrl,
           request.offcyclePoImageDownloadUrl,
           request.offcyclePoImageName,
         ),
-      ].join("");
+      );
     }
 
-    if (request.factoryCaseType === "FACTORY_DELIVERY_DOCS") {
-      return [
-        detailRow("ชื่องาน", request.factoryJobName || "-"),
-        detailRow("วันที่จัดส่ง", request.factoryDeliveryDate || "-"),
-        detailRow("เวลาจัดส่ง", request.factoryDeliveryTime || "-"),
-        detailRow("สถานที่จัดส่ง", request.factoryDeliveryLocation || "-"),
-        detailRow("Google Map", request.factoryDeliveryMapUrl || "-"),
-        detailRow("เบอร์ติดต่อผู้รับ/หน้างาน", request.factoryReceiverPhone || "-"),
-        detailRow("รายละเอียดเอกสารชั่วคราว", request.factoryTempDocumentRef || "-"),
-        attachmentRow(
+    if (request.factoryCaseType === CASE_FACTORY_DELIVERY) {
+      pairs.push(
+        attachmentPair(
           "ไฟล์เอกสารชั่วคราว",
           request.factoryTempDocumentImageUrl,
           request.factoryTempDocumentImageDownloadUrl,
           request.factoryTempDocumentImageName,
         ),
-        detailRow("รายละเอียดเบิกของ/Reservation", request.factoryReservationRef || "-"),
-        attachmentRow(
+      );
+      pairs.push(
+        attachmentPair(
           "ไฟล์ Reservation",
           request.factoryReservationImageUrl,
           request.factoryReservationImageDownloadUrl,
           request.factoryReservationImageName,
         ),
-      ].join("");
+      );
     }
 
-    if (request.factoryCaseType === "FACTORY_STAFF_SHUTTLE") {
-      return [
-        detailRow("จำนวนผู้โดยสาร", request.shuttlePassengers || "-"),
-        detailRow("วันที่เดินทาง", request.shuttleTravelDate || "-"),
-        detailRow("เวลาเดินทาง", request.shuttleTravelTime || "-"),
-        detailRow("รอรับกลับ", shuttleWaitLabel(request.shuttleReturnWait)),
-        detailRow("สถานที่", request.shuttleLocation || "-"),
-        detailRow("Google Map", request.shuttleMapUrl || "-"),
-      ].join("");
+    if (!pairs.length) {
+      return renderInfoBlock("ไฟล์แนบ", [{ label: "ไฟล์", value: "-" }]);
     }
 
-    return "";
+    return renderInfoBlock("ไฟล์แนบ", pairs);
   }
 
-  function detailRow(label, value) {
-    return `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value || "-")}</div>`;
+  function renderInfoBlock(title, pairs) {
+    const rows = (Array.isArray(pairs) ? pairs : [])
+      .map((pair) => {
+        const label = escapeHtml(pair.label || "-");
+        const valueHtml = renderPairValue(pair);
+        return (
+          '<div class="kv-item">' +
+          '<span class="kv-label">' +
+          label +
+          "</span>" +
+          '<div class="kv-value">' +
+          valueHtml +
+          "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
+
+    return (
+      '<section class="request-info-block">' +
+      "<h4>" +
+      escapeHtml(title || "รายละเอียด") +
+      "</h4>" +
+      '<div class="kv-grid">' +
+      rows +
+      "</div>" +
+      "</section>"
+    );
   }
 
-  function attachmentRow(label, viewUrl, downloadUrl, fileName) {
+  function renderPairValue(pair) {
+    if (pair && pair.asHtml) {
+      return pair.value || "-";
+    }
+
+    const text = String((pair && pair.value) || "-");
+    if (pair && pair.allowUrl && isValidUrl(text)) {
+      const safeUrl = escapeAttr(text);
+      return '<a class="inline-action" href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">เปิดลิงก์</a>';
+    }
+
+    return escapeHtml(text);
+  }
+
+  function attachmentPair(label, viewUrl, downloadUrl, fileName) {
     if (!viewUrl && !downloadUrl) {
-      return detailRow(label, "-");
+      return { label: label, value: "-" };
     }
 
     const links = [];
     if (viewUrl) {
       links.push(
-        `<a class="inline-action" href="${escapeAttr(viewUrl)}" target="_blank" rel="noopener noreferrer">เปิดดู</a>`,
+        '<a class="inline-action" href="' +
+          escapeAttr(viewUrl) +
+          '" target="_blank" rel="noopener noreferrer">เปิดดู</a>',
       );
     }
     if (downloadUrl) {
       links.push(
-        `<a class="inline-action" href="${escapeAttr(downloadUrl)}" target="_blank" rel="noopener noreferrer" download>ดาวน์โหลด</a>`,
+        '<a class="inline-action" href="' +
+          escapeAttr(downloadUrl) +
+          '" target="_blank" rel="noopener noreferrer" download>ดาวน์โหลด</a>',
       );
     }
 
-    const namePart = fileName
-      ? `<span class="file-meta">${escapeHtml(fileName)}</span>`
+    const meta = fileName
+      ? '<span class="file-meta">' + escapeHtml(fileName) + "</span>"
       : '<span class="file-meta">แนบไฟล์แล้ว</span>';
-    return `<div><strong>${escapeHtml(label)}:</strong> ${links.join("")} ${namePart}</div>`;
+
+    return {
+      label: label,
+      value: '<div class="attachment-links">' + links.join("") + meta + "</div>",
+      asHtml: true,
+    };
+  }
+
+  function applyCommonFilters(requests, searchText, typeFilter) {
+    const query = String(searchText || "").trim().toLowerCase();
+    const type = String(typeFilter || "ALL").trim();
+
+    return (Array.isArray(requests) ? requests : []).filter((request) => {
+      if (!matchTypeFilter(request, type)) return false;
+      if (!query) return true;
+      return matchSearchQuery(request, query);
+    });
+  }
+
+  function matchTypeFilter(request, typeFilter) {
+    if (!typeFilter || typeFilter === "ALL") return true;
+    if (typeFilter === TOPIC_OFF_CYCLE) return request.requestTopic === TOPIC_OFF_CYCLE;
+    if (typeFilter === CASE_FACTORY_DELIVERY) return request.factoryCaseType === CASE_FACTORY_DELIVERY;
+    if (typeFilter === CASE_FACTORY_SHUTTLE) return request.factoryCaseType === CASE_FACTORY_SHUTTLE;
+    return true;
+  }
+
+  function matchSearchQuery(request, query) {
+    const buffer = [
+      request.requestId,
+      getTopicLabel(request),
+      getCaseLabel(request),
+      request.requesterName,
+      request.requesterPhone,
+      request.contactEmail,
+      request.offcycleStoreName,
+      request.factoryJobName,
+      request.factoryDeliveryLocation,
+      request.shuttleLocation,
+      request.factoryTempDocumentRef,
+      request.factoryReservationRef,
+      request.decisionRemark,
+      request.submittedAt,
+      request.approvedAt,
+      request.rejectedAt,
+    ]
+      .map((value) => String(value || ""))
+      .join(" ")
+      .toLowerCase();
+
+    return buffer.indexOf(query) > -1;
+  }
+
+  function sortRequests(requests, sortOrder, sortBy) {
+    const order = sortOrder === "latest" ? "latest" : "oldest";
+    const basis = sortBy === "decision" ? "decision" : "submitted";
+
+    return [...requests].sort((a, b) => {
+      const aPrimary = getSortTimestamp(a, basis);
+      const bPrimary = getSortTimestamp(b, basis);
+
+      if (aPrimary !== bPrimary) {
+        return order === "latest" ? bPrimary - aPrimary : aPrimary - bPrimary;
+      }
+
+      const aFallback = getSortTimestamp(a, "submitted");
+      const bFallback = getSortTimestamp(b, "submitted");
+      if (aFallback !== bFallback) {
+        return order === "latest" ? bFallback - aFallback : aFallback - bFallback;
+      }
+
+      return String(a.requestId || "").localeCompare(String(b.requestId || ""));
+    });
+  }
+
+  function getSortTimestamp(request, sortBy) {
+    if (sortBy === "decision") {
+      const status = normalizeStatus(request.status);
+      if (status === STATUS_APPROVED) {
+        return parseDateTimeValue(request.approvedAt) || parseDateTimeValue(request.submittedAt);
+      }
+      if (status === STATUS_REJECTED) {
+        return parseDateTimeValue(request.rejectedAt) || parseDateTimeValue(request.submittedAt);
+      }
+    }
+
+    return parseDateTimeValue(request.submittedAt);
+  }
+
+  function parseDateTimeValue(value) {
+    const text = String(value || "").trim();
+    if (!text) return 0;
+
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)
+      ? text.replace(" ", "T")
+      : /^\d{4}-\d{2}-\d{2}$/.test(text)
+        ? text + "T00:00:00"
+        : text;
+
+    const timestamp = Date.parse(normalized);
+    if (Number.isNaN(timestamp)) return 0;
+    return timestamp;
+  }
+
+  function statusToClass(status) {
+    if (status === STATUS_APPROVED) return "approved";
+    if (status === STATUS_REJECTED) return "rejected";
+    return "pending";
+  }
+
+  function normalizeStatus(status) {
+    return String(status || STATUS_PENDING)
+      .trim()
+      .toUpperCase();
+  }
+
+  function getTopicLabel(request) {
+    return request.requestTopicLabel || request.requestTopic || "-";
+  }
+
+  function getCaseLabel(request) {
+    return request.factoryCaseLabel || "";
   }
 
   function shuttleWaitLabel(value) {
@@ -405,6 +752,7 @@
       const decisionAtText = decisionAt ? " เวลา: " + decisionAt : "";
       const emailStatus = response.emailStatus ? " Email: " + response.emailStatus : "";
       showMessage(options.doneText + " (" + options.requestId + ")." + decisionAtText + emailStatus, "success");
+
       await loadRequests();
       shouldRestoreButtons = false;
     } catch (error) {
@@ -431,9 +779,24 @@
     return value.trim();
   }
 
+  function setActiveView(view) {
+    activeView = view === VIEW_HISTORY ? VIEW_HISTORY : VIEW_PENDING;
+
+    if (pendingPanel) pendingPanel.classList.toggle("hidden", activeView !== VIEW_PENDING);
+    if (historyPanel) historyPanel.classList.toggle("hidden", activeView !== VIEW_HISTORY);
+
+    if (pendingTabBtn) pendingTabBtn.classList.toggle("is-active", activeView === VIEW_PENDING);
+    if (historyTabBtn) historyTabBtn.classList.toggle("is-active", activeView === VIEW_HISTORY);
+  }
+
   function setAuthenticated(isAuthenticated) {
     if (loginOverlay) loginOverlay.classList.toggle("is-hidden", isAuthenticated);
     if (refreshBtn) refreshBtn.disabled = !isAuthenticated;
+
+    const tabs = [pendingTabBtn, historyTabBtn].filter(Boolean);
+    tabs.forEach((tab) => {
+      tab.disabled = !isAuthenticated;
+    });
   }
 
   function setAdminNameDisplay(adminName) {
@@ -455,9 +818,19 @@
     if (type) loginMessageEl.classList.add(type);
   }
 
-  function renderEmpty(text) {
-    listEl.innerHTML = `<p class="empty-state">${escapeHtml(text)}</p>`;
-    countEl.textContent = "0 records";
+  function renderSignedOutState(message) {
+    allRequests = [];
+    renderPanelEmpty(pendingListEl, pendingCountEl, message || "Please sign in as admin.");
+    renderPanelEmpty(historyListEl, historyCountEl, message || "Please sign in as admin.");
+  }
+
+  function renderPanelEmpty(listEl, countEl, text) {
+    if (listEl) {
+      listEl.innerHTML = `<p class="empty-state">${escapeHtml(text || "No records found.")}</p>`;
+    }
+    if (countEl) {
+      countEl.textContent = "0 records";
+    }
   }
 
   function readStoredAuth() {
@@ -466,6 +839,7 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return null;
+
       const adminName = String(parsed.adminName || "").trim();
       const adminPass = String(parsed.adminPass || "").trim();
       if (!adminName || !adminPass) return null;
@@ -493,9 +867,12 @@
     authSession = null;
     clearStoredAuth();
     setAdminNameDisplay("");
+    setActiveView(VIEW_PENDING);
+
     if (loginPassInput) loginPassInput.value = "";
+
     setAuthenticated(false);
-    renderEmpty("Logged out from admin mode. Please sign in again.");
+    renderSignedOutState("Logged out from admin mode. Please sign in again.");
     showMessage("Logged out from admin mode.", "success");
   }
 
@@ -521,6 +898,11 @@
     messageEl.textContent = text;
     messageEl.classList.remove("success", "error");
     if (type) messageEl.classList.add(type);
+  }
+
+  function isValidUrl(url) {
+    const text = String(url || "").trim();
+    return /^https?:\/\/.+/i.test(text);
   }
 
   function escapeHtml(value) {

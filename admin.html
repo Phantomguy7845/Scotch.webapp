@@ -56,14 +56,95 @@
           <button id="logoutAdminBtn" type="button" class="button-secondary">ออกจากโหมดแอดมิน</button>
           <p id="adminMessage" class="form-message" aria-live="polite"></p>
         </div>
+
+        <div class="admin-view-tabs" role="tablist" aria-label="Admin Views">
+          <button id="pendingTabBtn" type="button" class="admin-tab is-active">คำขอรอพิจารณา</button>
+          <button id="historyTabBtn" type="button" class="admin-tab">ประวัติคำขอ</button>
+        </div>
       </section>
 
-      <section class="card admin-list-wrap">
+      <section id="pendingPanel" class="card admin-list-wrap">
         <div class="list-head">
-          <h2>Requests</h2>
-          <p id="requestCount">0 records</p>
+          <h2>คำขอรอพิจารณา</h2>
+          <p id="pendingCount">0 records</p>
         </div>
-        <div id="requestList" class="request-list"></div>
+
+        <div class="admin-filter-grid">
+          <label class="admin-filter-field">
+            <span>ค้นหา</span>
+            <input
+              id="pendingSearchInput"
+              type="search"
+              placeholder="ค้นหา Request ID / ผู้ขอ / เบอร์ / อีเมล / สถานที่"
+            />
+          </label>
+
+          <label class="admin-filter-field">
+            <span>ฟิลเตอร์ประเภท</span>
+            <select id="pendingTypeFilter">
+              <option value="ALL">ทั้งหมด</option>
+              <option value="OFF_CYCLE_DELIVERY">ขอส่งสินค้าไม่ตรงรอบ</option>
+              <option value="FACTORY_DELIVERY_DOCS">ส่งสินค้า/เอกสาร</option>
+              <option value="FACTORY_STAFF_SHUTTLE">รับ-ส่งพนักงาน</option>
+            </select>
+          </label>
+
+          <label class="admin-filter-field">
+            <span>เรียงลำดับ</span>
+            <select id="pendingSortOrder">
+              <option value="oldest">เก่ากว่า → ล่าสุด</option>
+              <option value="latest">ล่าสุด → เก่ากว่า</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="pendingList" class="request-list"></div>
+      </section>
+
+      <section id="historyPanel" class="card admin-list-wrap hidden">
+        <div class="list-head">
+          <h2>ประวัติคำขอ (อนุมัติ/ไม่อนุมัติ)</h2>
+          <p id="historyCount">0 records</p>
+        </div>
+
+        <div class="admin-filter-grid admin-filter-grid-history">
+          <label class="admin-filter-field">
+            <span>ค้นหา</span>
+            <input
+              id="historySearchInput"
+              type="search"
+              placeholder="ค้นหา Request ID / ผู้ขอ / เบอร์ / อีเมล / Remark"
+            />
+          </label>
+
+          <label class="admin-filter-field">
+            <span>ฟิลเตอร์ประเภท</span>
+            <select id="historyTypeFilter">
+              <option value="ALL">ทั้งหมด</option>
+              <option value="OFF_CYCLE_DELIVERY">ขอส่งสินค้าไม่ตรงรอบ</option>
+              <option value="FACTORY_DELIVERY_DOCS">ส่งสินค้า/เอกสาร</option>
+              <option value="FACTORY_STAFF_SHUTTLE">รับ-ส่งพนักงาน</option>
+            </select>
+          </label>
+
+          <label class="admin-filter-field">
+            <span>เรียงตามวันที่</span>
+            <select id="historySortBy">
+              <option value="submitted">วันที่ส่งคำขอ</option>
+              <option value="decision">วันที่อนุมัติ/ไม่อนุมัติ</option>
+            </select>
+          </label>
+
+          <label class="admin-filter-field">
+            <span>เรียงลำดับ</span>
+            <select id="historySortOrder">
+              <option value="oldest">เก่ากว่า → ล่าสุด</option>
+              <option value="latest">ล่าสุด → เก่ากว่า</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="historyList" class="request-list"></div>
       </section>
     </main>
 
