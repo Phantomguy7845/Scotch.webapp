@@ -168,6 +168,7 @@ function submitRequest(data) {
   return jsonResponse({
     ok: true,
     requestId: requestId,
+    submittedAt: submittedAt,
     message: "Request submitted successfully.",
   });
 }
@@ -199,9 +200,13 @@ function approveRequest(payload) {
   const statusCell = sheet.getRange(foundRow, statusCol);
   const currentStatus = String(statusCell.getValue() || "");
   if (currentStatus.toUpperCase() === "APPROVED") {
+    const existingApprovedAt = String(sheet.getRange(foundRow, approvedAtCol).getValue() || "");
+    const existingApprovedBy = String(sheet.getRange(foundRow, approvedByCol).getValue() || "");
     return jsonResponse({
       ok: true,
       message: "Request already approved.",
+      approvedAt: existingApprovedAt,
+      approvedBy: existingApprovedBy,
       emailStatus: sheet.getRange(foundRow, emailStatusCol).getValue(),
     });
   }
@@ -223,6 +228,8 @@ function approveRequest(payload) {
   return jsonResponse({
     ok: true,
     requestId: requestId,
+    approvedAt: approvedAt,
+    approvedBy: approvedBy,
     emailStatus: emailStatusText,
     message: "Request approved.",
   });

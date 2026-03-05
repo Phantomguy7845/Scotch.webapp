@@ -72,7 +72,11 @@
         throw new Error(response.error || "Unable to submit request.");
       }
 
-      showMessage("ส่งคำร้องสำเร็จ รหัสคำขอ: " + response.requestId, "success");
+      const submittedAtText = response.submittedAt ? " เวลา: " + response.submittedAt : "";
+      showMessage(
+        "ส่งคำร้องสำเร็จ รหัสคำขอ: " + response.requestId + submittedAtText,
+        "success",
+      );
       form.reset();
       clearDraft();
       updateConditionalBlocks();

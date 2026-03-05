@@ -113,6 +113,9 @@
       detailRow("เบอร์ติดต่อผู้ขอ", request.requesterPhone || "-"),
       detailRow("อีเมลติดต่อ", request.contactEmail || "-"),
       detailRow("ส่งคำขอเมื่อ", request.submittedAt || "-"),
+      detailRow("อนุมัติเมื่อ", request.approvedAt || "-"),
+      detailRow("อนุมัติโดย", request.approvedBy || "-"),
+      detailRow("สถานะอีเมล", request.emailStatus || "-"),
     ].join("");
   }
 
@@ -225,8 +228,9 @@
         throw new Error(response.error || "Could not approve this request.");
       }
 
+      const approvedAtText = response.approvedAt ? " เวลา: " + response.approvedAt : "";
       const emailStatus = response.emailStatus ? " Email: " + response.emailStatus : "";
-      showMessage("Request " + requestId + " approved." + emailStatus, "success");
+      showMessage("Request " + requestId + " approved." + approvedAtText + emailStatus, "success");
       await loadRequests();
     } catch (error) {
       showMessage(error.message || "Unexpected error while approving.", "error");
