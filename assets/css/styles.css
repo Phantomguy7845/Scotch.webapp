@@ -634,6 +634,15 @@ button:disabled {
   color: #21324d;
 }
 
+.button-danger {
+  background: #b43333;
+  color: #ffffff;
+}
+
+.button-danger:hover {
+  filter: brightness(0.95);
+}
+
 .form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -846,6 +855,12 @@ button:disabled {
   background: #e8f8ee;
 }
 
+.status-pill.rejected {
+  color: #8f1f1f;
+  border-color: #efc1c1;
+  background: #ffecec;
+}
+
 .request-meta {
   margin: 12px 0 0;
   display: grid;
@@ -888,6 +903,7 @@ button:disabled {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .empty-state {

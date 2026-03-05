@@ -78,7 +78,9 @@
       item.className = "request-item";
 
       const status = (request.status || "PENDING").toUpperCase();
-      const statusClass = status === "APPROVED" ? "approved" : "pending";
+      let statusClass = "pending";
+      if (status === "APPROVED") statusClass = "approved";
+      if (status === "REJECTED") statusClass = "rejected";
 
       item.innerHTML = `
         <div class="request-item-head">
@@ -91,13 +93,26 @@
         </div>
       `;
 
-      if (status !== "APPROVED") {
+      if (status === "PENDING") {
         const actions = document.createElement("div");
         actions.className = "request-actions";
+
         const approveBtn = document.createElement("button");
-        approveBtn.textContent = "Approve and notify";
-        approveBtn.addEventListener("click", () => approveRequest(request.requestId, approveBtn));
+        approveBtn.type = "button";
+        approveBtn.textContent = "อนุมัติ + ส่งเมล";
+
+        const rejectBtn = document.createElement("button");
+        rejectBtn.type = "button";
+        rejectBtn.className = "button-danger";
+        rejectBtn.textContent = "ไม่อนุมัติ + ส่งเมล";
+
+        approveBtn.addEventListener("click", () =>
+          approveRequest(request.requestId, approveBtn, rejectBtn),
+        );
+        rejectBtn.addEventListener("click", () => rejectRequest(request.requestId, approveBtn, rejectBtn));
+
         actions.appendChild(approveBtn);
+        actions.appendChild(rejectBtn);
         item.appendChild(actions);
       }
 
@@ -115,6 +130,9 @@
       detailRow("ส่งคำขอเมื่อ", request.submittedAt || "-"),
       detailRow("อนุมัติเมื่อ", request.approvedAt || "-"),
       detailRow("อนุมัติโดย", request.approvedBy || "-"),
+      detailRow("ไม่อนุมัติเมื่อ", request.rejectedAt || "-"),
+      detailRow("ไม่อนุมัติโดย", request.rejectedBy || "-"),
+      detailRow("Remark", request.decisionRemark || "-"),
       detailRow("สถานะอีเมล", request.emailStatus || "-"),
     ].join("");
   }
@@ -208,42 +226,98 @@
     return value || "-";
   }
 
-  async function approveRequest(requestId, buttonEl) {
+  async function approveRequest(requestId, approveBtn, rejectBtn) {
+    await handleDecisionAction({
+      action: "approveRequest",
+      requestId,
+      decisionText: "อนุมัติ",
+      processingText: "กำลังอนุมัติ...",
+      doneText: "อนุมัติคำขอสำเร็จ",
+      triggerBtn: approveBtn,
+      peerBtn: rejectBtn,
+    });
+  }
+
+  async function rejectRequest(requestId, approveBtn, rejectBtn) {
+    await handleDecisionAction({
+      action: "rejectRequest",
+      requestId,
+      decisionText: "ไม่อนุมัติ",
+      processingText: "กำลังไม่อนุมัติ...",
+      doneText: "ไม่อนุมัติคำขอสำเร็จ",
+      triggerBtn: rejectBtn,
+      peerBtn: approveBtn,
+    });
+  }
+
+  async function handleDecisionAction(options) {
     const adminKey = getAdminKey();
     if (!adminKey) {
-      showMessage("Admin key is required for approval.", "error");
+      showMessage("Admin key is required.", "error");
+      return;
+    }
+
+    const remark = requestDecisionRemark(options.decisionText, options.requestId);
+    if (remark === null) return;
+    if (!remark) {
+      showMessage("กรุณาระบุ Remark ก่อนส่งผลการพิจารณา", "error");
       return;
     }
 
     const approvedBy = approvedByInput.value.trim() || "Fleet Admin";
-    if (!window.confirm("Approve request " + requestId + " and send email notification?")) {
+    if (!window.confirm(options.decisionText + "คำขอ " + options.requestId + " และส่งอีเมลแจ้งผลใช่หรือไม่?")) {
       return;
     }
 
+    const buttons = [options.triggerBtn, options.peerBtn].filter(Boolean);
+    const originalLabels = buttons.map((btn) => btn.textContent);
+    let shouldRestoreButtons = true;
+
     try {
-      buttonEl.disabled = true;
-      buttonEl.textContent = "Approving...";
+      buttons.forEach((btn) => {
+        btn.disabled = true;
+      });
+      if (options.triggerBtn) {
+        options.triggerBtn.textContent = options.processingText;
+      }
 
       const response = await postToApi({
-        action: "approveRequest",
+        action: options.action,
         adminKey,
-        requestId,
+        requestId: options.requestId,
         approvedBy,
+        remark,
       });
 
       if (!response.ok) {
-        throw new Error(response.error || "Could not approve this request.");
+        throw new Error(response.error || "Could not update this request.");
       }
 
-      const approvedAtText = response.approvedAt ? " เวลา: " + response.approvedAt : "";
+      const decisionAt = response.approvedAt || response.rejectedAt || "";
+      const decisionAtText = decisionAt ? " เวลา: " + decisionAt : "";
       const emailStatus = response.emailStatus ? " Email: " + response.emailStatus : "";
-      showMessage("Request " + requestId + " approved." + approvedAtText + emailStatus, "success");
+      showMessage(options.doneText + " (" + options.requestId + ")." + decisionAtText + emailStatus, "success");
       await loadRequests();
+      shouldRestoreButtons = false;
     } catch (error) {
-      showMessage(error.message || "Unexpected error while approving.", "error");
-      buttonEl.disabled = false;
-      buttonEl.textContent = "Approve and notify";
+      showMessage(error.message || "Unexpected error while updating request.", "error");
+    } finally {
+      if (shouldRestoreButtons) {
+        buttons.forEach((btn, index) => {
+          btn.disabled = false;
+          btn.textContent = originalLabels[index];
+        });
+      }
     }
+  }
+
+  function requestDecisionRemark(decisionText, requestId) {
+    const value = window.prompt(
+      decisionText + "คำขอ " + requestId + "\nกรุณาระบุ Remark ว่า " + decisionText + " เนื่องจากอะไร",
+      "",
+    );
+    if (value === null) return null;
+    return value.trim();
   }
 
   function renderEmpty(text) {

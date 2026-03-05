@@ -61,6 +61,9 @@ const HEADERS = [
   "factoryReservationImageUrl",
   "factoryReservationImageDownloadUrl",
   "factoryReservationImageFileId",
+  "rejectedAt",
+  "rejectedBy",
+  "decisionRemark",
 ];
 
 function doGet(e) {
@@ -98,6 +101,10 @@ function doPost(e) {
 
     if (action === "approverequest") {
       return approveRequest(payload);
+    }
+
+    if (action === "rejectrequest") {
+      return rejectRequest(payload);
     }
 
     return jsonResponse({ ok: false, error: "Unknown action: " + action });
@@ -173,6 +180,9 @@ function submitRequest(data) {
     factoryReservationImageUrl: reservationUpload.url,
     factoryReservationImageDownloadUrl: reservationUpload.downloadUrl,
     factoryReservationImageFileId: reservationUpload.fileId,
+    rejectedAt: "",
+    rejectedBy: "",
+    decisionRemark: "",
   };
 
   const row = HEADERS.map(function (header) {
@@ -189,11 +199,22 @@ function submitRequest(data) {
 }
 
 function approveRequest(payload) {
+  return handleDecision(payload, "APPROVED");
+}
+
+function rejectRequest(payload) {
+  return handleDecision(payload, "REJECTED");
+}
+
+function handleDecision(payload, nextStatus) {
   verifyAdminKey(payload.adminKey);
   const requestId = safeText(payload.requestId);
   if (!requestId) throw new Error("requestId is required.");
 
-  const approvedBy = safeText(payload.approvedBy || "Fleet Admin");
+  const decidedBy = safeText(payload.approvedBy || payload.decidedBy || "Fleet Admin");
+  const remark = safeText(payload.remark);
+  if (!remark) throw new Error("remark is required.");
+
   const sheet = getOrCreateSheet();
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) throw new Error("No requests found.");
@@ -210,43 +231,83 @@ function approveRequest(payload) {
   const statusCol = headerIndex("status") + 1;
   const approvedAtCol = headerIndex("approvedAt") + 1;
   const approvedByCol = headerIndex("approvedBy") + 1;
+  const rejectedAtCol = headerIndex("rejectedAt") + 1;
+  const rejectedByCol = headerIndex("rejectedBy") + 1;
+  const decisionRemarkCol = headerIndex("decisionRemark") + 1;
   const emailStatusCol = headerIndex("emailStatus") + 1;
 
   const statusCell = sheet.getRange(foundRow, statusCol);
-  const currentStatus = String(statusCell.getValue() || "");
-  if (currentStatus.toUpperCase() === "APPROVED") {
-    const existingApprovedAt = String(sheet.getRange(foundRow, approvedAtCol).getValue() || "");
-    const existingApprovedBy = String(sheet.getRange(foundRow, approvedByCol).getValue() || "");
+  const currentStatus = String(statusCell.getValue() || "").toUpperCase();
+
+  if (currentStatus === nextStatus) {
     return jsonResponse({
       ok: true,
-      message: "Request already approved.",
-      approvedAt: existingApprovedAt,
-      approvedBy: existingApprovedBy,
-      emailStatus: sheet.getRange(foundRow, emailStatusCol).getValue(),
+      message: nextStatus === "APPROVED" ? "Request already approved." : "Request already rejected.",
+      status: currentStatus,
+      approvedAt: String(sheet.getRange(foundRow, approvedAtCol).getValue() || ""),
+      approvedBy: String(sheet.getRange(foundRow, approvedByCol).getValue() || ""),
+      rejectedAt: String(sheet.getRange(foundRow, rejectedAtCol).getValue() || ""),
+      rejectedBy: String(sheet.getRange(foundRow, rejectedByCol).getValue() || ""),
+      decisionRemark: String(sheet.getRange(foundRow, decisionRemarkCol).getValue() || ""),
+      emailStatus: String(sheet.getRange(foundRow, emailStatusCol).getValue() || ""),
     });
   }
 
-  const approvedAt = nowIso();
-  statusCell.setValue("APPROVED");
-  sheet.getRange(foundRow, approvedAtCol).setValue(approvedAt);
-  sheet.getRange(foundRow, approvedByCol).setValue(approvedBy);
+  if (currentStatus === "APPROVED" || currentStatus === "REJECTED") {
+    throw new Error("Request already decided: " + currentStatus + ".");
+  }
+
+  const decidedAt = nowIso();
+  statusCell.setValue(nextStatus);
+  sheet.getRange(foundRow, decisionRemarkCol).setValue(remark);
+
+  if (nextStatus === "APPROVED") {
+    sheet.getRange(foundRow, approvedAtCol).setValue(decidedAt);
+    sheet.getRange(foundRow, approvedByCol).setValue(decidedBy);
+    sheet.getRange(foundRow, rejectedAtCol).setValue("");
+    sheet.getRange(foundRow, rejectedByCol).setValue("");
+  } else {
+    sheet.getRange(foundRow, rejectedAtCol).setValue(decidedAt);
+    sheet.getRange(foundRow, rejectedByCol).setValue(decidedBy);
+    sheet.getRange(foundRow, approvedAtCol).setValue("");
+    sheet.getRange(foundRow, approvedByCol).setValue("");
+  }
 
   const requestRow = sheet.getRange(foundRow, 1, 1, HEADERS.length).getValues()[0];
   const request = rowToRequest(requestRow);
-  request.approvedAt = approvedAt;
-  request.approvedBy = approvedBy;
+  request.status = nextStatus;
+  request.decisionRemark = remark;
+  if (nextStatus === "APPROVED") {
+    request.approvedAt = decidedAt;
+    request.approvedBy = decidedBy;
+    request.rejectedAt = "";
+    request.rejectedBy = "";
+  } else {
+    request.rejectedAt = decidedAt;
+    request.rejectedBy = decidedBy;
+    request.approvedAt = "";
+    request.approvedBy = "";
+  }
 
-  const emailResult = sendApprovalEmail(request);
-  const emailStatusText = emailResult.ok ? "SENT" : "FAILED: " + emailResult.error;
+  const emailResult = sendDecisionEmail(request);
+  const emailStatusText = emailResult.ok
+    ? emailResult.warning
+      ? "SENT_WITH_WARNING: " + emailResult.warning
+      : "SENT"
+    : "FAILED: " + emailResult.error;
   sheet.getRange(foundRow, emailStatusCol).setValue(emailStatusText);
 
   return jsonResponse({
     ok: true,
     requestId: requestId,
-    approvedAt: approvedAt,
-    approvedBy: approvedBy,
+    status: nextStatus,
+    approvedAt: request.approvedAt,
+    approvedBy: request.approvedBy,
+    rejectedAt: request.rejectedAt,
+    rejectedBy: request.rejectedBy,
+    decisionRemark: remark,
     emailStatus: emailStatusText,
-    message: "Request approved.",
+    message: nextStatus === "APPROVED" ? "Request approved." : "Request rejected.",
   });
 }
 
@@ -270,75 +331,209 @@ function rowToRequest(row) {
   return request;
 }
 
-function sendApprovalEmail(request) {
+function sendDecisionEmail(request) {
   const recipient = safeText(request.contactEmail);
   if (!recipient) return { ok: false, error: "Missing recipient email." };
 
-  const subject = "อนุมัติคำขอใช้รถแล้ว: " + request.requestId;
-  const lines = [
-    "คำขอใช้รถของคุณได้รับการอนุมัติแล้ว",
+  const isApproved = request.status === "APPROVED";
+  const decisionLabel = isApproved ? "อนุมัติ" : "ไม่อนุมัติ";
+  const decisionBadge = isApproved ? "APPROVED" : "REJECTED";
+  const decisionColor = isApproved ? "#0E7A42" : "#B42318";
+  const decidedAt = safeText(isApproved ? request.approvedAt : request.rejectedAt);
+  const decidedBy = safeText(isApproved ? request.approvedBy : request.rejectedBy);
+  const decisionRemark = safeText(request.decisionRemark);
+
+  const subject =
+    "[Scotch Industrial Fleet] ผลการพิจารณาคำขอ " + safeText(request.requestId) + " : " + decisionLabel;
+  const details = buildDecisionDetailItems(request);
+  const detailText = details.map(function (item) {
+    return item.label + ": " + item.value;
+  });
+
+  const textLines = [
+    "ผลการพิจารณาคำขอใช้รถบริษัท",
     "",
-    "Request ID: " + request.requestId,
-    "หัวข้อ: " + request.requestTopicLabel,
-  ];
+    "สถานะ: " + decisionLabel + " (" + decisionBadge + ")",
+    "Request ID: " + safeText(request.requestId),
+    "พิจารณาเมื่อ: " + decidedAt,
+    "พิจารณาโดย: " + decidedBy,
+    "หมายเหตุ: " + (decisionRemark || "-"),
+    "",
+    "รายละเอียดคำขอ",
+  ]
+    .concat(detailText)
+    .concat([
+      "",
+      "อีเมลฉบับนี้ถูกส่งโดยระบบอัตโนมัติ กรุณาอย่าตอบกลับ (no-reply).",
+      "Scotch Industrial Fleet Service",
+    ]);
+
+  const detailRowsHtml = details
+    .map(function (item) {
+      return (
+        '<tr>' +
+        '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;color:#4B5563;width:32%;font-weight:600;">' +
+        escapeHtml(item.label) +
+        "</td>" +
+        '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;color:#111827;">' +
+        formatDecisionValueHtml(item.value) +
+        "</td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  const htmlBody =
+    '<div style="margin:0;padding:24px;background:#F4F6FB;font-family:Arial,sans-serif;color:#111827;">' +
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:760px;margin:0 auto;background:#FFFFFF;border-radius:12px;border:1px solid #E5E7EB;overflow:hidden;">' +
+    "<tr>" +
+    '<td style="padding:16px 20px;background:' +
+    decisionColor +
+    ';color:#FFFFFF;">' +
+    '<div style="font-size:12px;letter-spacing:.04em;text-transform:uppercase;opacity:.9;">Scotch Industrial Fleet Service</div>' +
+    '<div style="margin-top:6px;font-size:22px;font-weight:700;">แจ้งผลการพิจารณาคำขอใช้รถ</div>' +
+    '<div style="margin-top:8px;font-size:14px;">สถานะ: <strong>' +
+    decisionLabel +
+    " (" +
+    decisionBadge +
+    ")</strong></div>" +
+    "</td>" +
+    "</tr>" +
+    "<tr>" +
+    '<td style="padding:20px 20px 8px 20px;">' +
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;">' +
+    '<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;color:#4B5563;width:32%;font-weight:600;">Request ID</td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;">' +
+    escapeHtml(request.requestId) +
+    "</td></tr>" +
+    '<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;color:#4B5563;width:32%;font-weight:600;">พิจารณาเมื่อ</td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;">' +
+    escapeHtml(decidedAt || "-") +
+    "</td></tr>" +
+    '<tr><td style="padding:8px 10px;color:#4B5563;width:32%;font-weight:600;">พิจารณาโดย</td><td style="padding:8px 10px;">' +
+    escapeHtml(decidedBy || "-") +
+    "</td></tr>" +
+    "</table>" +
+    "</td>" +
+    "</tr>" +
+    "<tr>" +
+    '<td style="padding:8px 20px 12px 20px;">' +
+    '<div style="border:1px solid #E5E7EB;border-radius:10px;padding:12px;background:#FAFAFA;">' +
+    '<div style="font-size:13px;color:#4B5563;font-weight:600;">Remark จากผู้พิจารณา</div>' +
+    '<div style="margin-top:6px;font-size:14px;line-height:1.6;color:#111827;white-space:pre-wrap;">' +
+    escapeHtml(decisionRemark || "-") +
+    "</div>" +
+    "</div>" +
+    "</td>" +
+    "</tr>" +
+    "<tr>" +
+    '<td style="padding:0 20px 12px 20px;">' +
+    '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:8px;">รายละเอียดคำขอ</div>' +
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;">' +
+    detailRowsHtml +
+    "</table>" +
+    "</td>" +
+    "</tr>" +
+    "<tr>" +
+    '<td style="padding:14px 20px 20px 20px;font-size:12px;color:#6B7280;line-height:1.6;">' +
+    "อีเมลฉบับนี้ส่งจากระบบอัตโนมัติ กรุณาอย่าตอบกลับ (no-reply).<br/>" +
+    "This message was generated automatically by " +
+    escapeHtml(CONFIG.APP_NAME) +
+    "." +
+    "</td>" +
+    "</tr>" +
+    "</table>" +
+    "</div>";
+
+  const emailOptions = {
+    to: recipient,
+    subject: subject,
+    body: textLines.join("\n"),
+    htmlBody: htmlBody,
+    name: "Scotch Industrial Fleet Notification",
+  };
+  if (canUseNoReply()) {
+    emailOptions.noReply = true;
+  }
+
+  try {
+    MailApp.sendEmail(emailOptions);
+    return { ok: true };
+  } catch (error) {
+    if (emailOptions.noReply && isNoReplyUnsupportedError(error)) {
+      delete emailOptions.noReply;
+      MailApp.sendEmail(emailOptions);
+      return { ok: true, warning: "NO_REPLY_UNSUPPORTED_FOR_ACCOUNT" };
+    }
+    return { ok: false, error: error.message };
+  }
+}
+
+function buildDecisionDetailItems(request) {
+  const items = [];
+  pushDecisionItem(items, "หัวข้อ", request.requestTopicLabel || request.requestTopic);
+  pushDecisionItem(items, "กรณี", request.factoryCaseLabel);
+  pushDecisionItem(items, "ผู้ขอใช้", request.requesterName);
+  pushDecisionItem(items, "เบอร์ติดต่อผู้ขอ", request.requesterPhone);
+  pushDecisionItem(items, "อีเมลติดต่อ", request.contactEmail);
+  pushDecisionItem(items, "ส่งคำขอเมื่อ", request.submittedAt);
 
   if (request.requestTopic === TOPIC_OFF_CYCLE) {
-    lines.push("ชื่อห้าง: " + request.offcycleStoreName);
-    lines.push("วันที่ต้องการจัดส่ง: " + request.offcycleDeliveryDate);
-    lines.push("จำนวนลังสินค้า: " + request.offcycleCrates);
-    lines.push("ยอดเงิน: " + request.offcycleAmount);
-    lines.push("มี PO: " + (request.offcycleHasPo === "YES" ? "มี" : "ไม่มี"));
+    pushDecisionItem(items, "ชื่อห้าง", request.offcycleStoreName);
+    pushDecisionItem(items, "วันที่ต้องการจัดส่ง", request.offcycleDeliveryDate);
+    pushDecisionItem(items, "จำนวนลังสินค้า", request.offcycleCrates);
+    pushDecisionItem(items, "ยอดเงิน", request.offcycleAmount);
+    pushDecisionItem(items, "มี PO", request.offcycleHasPo === "YES" ? "มี" : "ไม่มี");
     if (request.offcycleHasPo === "YES") {
-      lines.push("ลิงก์รูป PO: " + request.offcyclePoImageUrl);
-      lines.push("ลิงก์ดาวน์โหลดรูป PO: " + request.offcyclePoImageDownloadUrl);
+      pushDecisionItem(items, "ลิงก์รูป PO", request.offcyclePoImageUrl);
+      pushDecisionItem(items, "ลิงก์ดาวน์โหลดรูป PO", request.offcyclePoImageDownloadUrl);
     }
   }
 
   if (request.requestTopic === TOPIC_FACTORY) {
-    lines.push("กรณี: " + request.factoryCaseLabel);
     if (request.factoryCaseType === CASE_FACTORY_DELIVERY) {
-      lines.push("ชื่องาน: " + request.factoryJobName);
-      lines.push("วันที่จัดส่ง: " + request.factoryDeliveryDate);
-      lines.push("เวลาจัดส่ง: " + request.factoryDeliveryTime);
-      lines.push("สถานที่จัดส่ง: " + request.factoryDeliveryLocation);
-      lines.push("Google Map: " + request.factoryDeliveryMapUrl);
-      lines.push("เบอร์ติดต่อหน้างาน: " + request.factoryReceiverPhone);
-      lines.push("รายละเอียดเอกสารชั่วคราว: " + request.factoryTempDocumentRef);
-      lines.push("รายละเอียด Reservation: " + request.factoryReservationRef);
-      lines.push("ลิงก์รูปเอกสารชั่วคราว: " + request.factoryTempDocumentImageUrl);
-      lines.push("ลิงก์ดาวน์โหลดเอกสารชั่วคราว: " + request.factoryTempDocumentImageDownloadUrl);
-      lines.push("ลิงก์รูป Reservation: " + request.factoryReservationImageUrl);
-      lines.push("ลิงก์ดาวน์โหลดรูป Reservation: " + request.factoryReservationImageDownloadUrl);
+      pushDecisionItem(items, "ชื่องาน", request.factoryJobName);
+      pushDecisionItem(items, "วันที่จัดส่ง", request.factoryDeliveryDate);
+      pushDecisionItem(items, "เวลาจัดส่ง", request.factoryDeliveryTime);
+      pushDecisionItem(items, "สถานที่จัดส่ง", request.factoryDeliveryLocation);
+      pushDecisionItem(items, "Google Map", request.factoryDeliveryMapUrl);
+      pushDecisionItem(items, "เบอร์ติดต่อหน้างาน", request.factoryReceiverPhone);
+      pushDecisionItem(items, "รายละเอียดเอกสารชั่วคราว", request.factoryTempDocumentRef);
+      pushDecisionItem(items, "รายละเอียด Reservation", request.factoryReservationRef);
+      pushDecisionItem(items, "ลิงก์รูปเอกสารชั่วคราว", request.factoryTempDocumentImageUrl);
+      pushDecisionItem(
+        items,
+        "ลิงก์ดาวน์โหลดเอกสารชั่วคราว",
+        request.factoryTempDocumentImageDownloadUrl,
+      );
+      pushDecisionItem(items, "ลิงก์รูป Reservation", request.factoryReservationImageUrl);
+      pushDecisionItem(items, "ลิงก์ดาวน์โหลดรูป Reservation", request.factoryReservationImageDownloadUrl);
     }
     if (request.factoryCaseType === CASE_FACTORY_SHUTTLE) {
-      lines.push("จำนวนผู้โดยสาร: " + request.shuttlePassengers);
-      lines.push("วันที่เดินทาง: " + request.shuttleTravelDate);
-      lines.push("เวลาเดินทาง: " + request.shuttleTravelTime);
-      lines.push("รอรับกลับ: " + shuttleWaitLabel(request.shuttleReturnWait));
-      lines.push("สถานที่: " + request.shuttleLocation);
-      lines.push("Google Map: " + request.shuttleMapUrl);
+      pushDecisionItem(items, "จำนวนผู้โดยสาร", request.shuttlePassengers);
+      pushDecisionItem(items, "วันที่เดินทาง", request.shuttleTravelDate);
+      pushDecisionItem(items, "เวลาเดินทาง", request.shuttleTravelTime);
+      pushDecisionItem(items, "รอรับกลับ", shuttleWaitLabel(request.shuttleReturnWait));
+      pushDecisionItem(items, "สถานที่", request.shuttleLocation);
+      pushDecisionItem(items, "Google Map", request.shuttleMapUrl);
     }
   }
 
-  lines.push("ผู้ขอใช้: " + request.requesterName);
-  lines.push("เบอร์ติดต่อผู้ขอ: " + request.requesterPhone);
-  lines.push("อีเมลติดต่อ: " + request.contactEmail);
-  lines.push("อนุมัติเมื่อ: " + request.approvedAt);
-  lines.push("อนุมัติโดย: " + request.approvedBy);
-  lines.push("");
-  lines.push("This is an automated email from " + CONFIG.APP_NAME + ".");
+  return items;
+}
 
-  try {
-    MailApp.sendEmail({
-      to: recipient,
-      subject: subject,
-      body: lines.join("\n"),
-      name: "Scotch Fleet Service",
-    });
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message };
+function pushDecisionItem(items, label, value) {
+  const text = safeText(value);
+  if (!text) return;
+  items.push({ label: label, value: text });
+}
+
+function formatDecisionValueHtml(value) {
+  const text = safeText(value);
+  if (!text) return "-";
+  if (isValidUrl(text)) {
+    const escapedUrl = escapeHtml(text);
+    return '<a href="' + escapedUrl + '" target="_blank" rel="noopener noreferrer">' + escapedUrl + "</a>";
   }
+  return escapeHtml(text);
 }
 
 function shuttleWaitLabel(value) {
@@ -627,6 +822,29 @@ function isNumberAtLeast(value, min) {
 function isValidUrl(url) {
   const text = safeText(url);
   return /^https?:\/\/.+/i.test(text);
+}
+
+function canUseNoReply() {
+  try {
+    const effectiveEmail = safeText(Session.getEffectiveUser().getEmail());
+    return effectiveEmail && !/@gmail\.com$/i.test(effectiveEmail);
+  } catch (error) {
+    return false;
+  }
+}
+
+function isNoReplyUnsupportedError(error) {
+  const text = safeText(error && error.message ? error.message : error).toLowerCase();
+  return text.indexOf("noreply") > -1 || text.indexOf("no reply") > -1;
+}
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function safeText(value) {
