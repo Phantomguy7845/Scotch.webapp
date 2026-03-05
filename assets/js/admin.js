@@ -13,19 +13,14 @@
   if (!listEl) return;
 
   apiUrlInput.value = config.apiBaseUrl || "";
-  const savedKey = localStorage.getItem(STORAGE_KEY) || config.adminKey || "";
-  adminKeyInput.value = savedKey;
+  adminKeyInput.value = localStorage.getItem(STORAGE_KEY) || config.adminKey || "";
 
   saveAdminKeyBtn.addEventListener("click", () => {
-    const key = adminKeyInput.value.trim();
-    localStorage.setItem(STORAGE_KEY, key);
+    localStorage.setItem(STORAGE_KEY, adminKeyInput.value.trim());
     showMessage("Admin key saved in browser storage.", "success");
   });
 
-  refreshBtn.addEventListener("click", () => {
-    loadRequests();
-  });
-
+  refreshBtn.addEventListener("click", loadRequests);
   loadRequests();
 
   async function loadRequests() {
@@ -53,10 +48,7 @@
 
       const response = await fetch(url.toString());
       const data = await response.json();
-
-      if (!data.ok) {
-        throw new Error(data.error || "Could not load requests.");
-      }
+      if (!data.ok) throw new Error(data.error || "Could not load requests.");
 
       renderRequests(data.requests || []);
       showMessage("Requests loaded.", "success");
@@ -70,12 +62,10 @@
   }
 
   function renderRequests(requests) {
-    const sorted = [...requests].sort((a, b) => {
-      return (b.submittedAt || "").localeCompare(a.submittedAt || "");
-    });
-
+    const sorted = [...requests].sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
     countEl.textContent = sorted.length + " records";
-    if (sorted.length === 0) {
+
+    if (!sorted.length) {
       renderEmpty("No records found.");
       return;
     }
@@ -91,19 +81,11 @@
       item.innerHTML = `
         <div class="request-item-head">
           <h3 class="request-id">${escapeHtml(request.requestId || "-")}</h3>
-          <span class="status-pill ${statusClass}">${status}</span>
+          <span class="status-pill ${statusClass}">${escapeHtml(status)}</span>
         </div>
         <div class="request-meta">
-          <div><strong>Name:</strong> ${escapeHtml(request.employeeName || "-")}</div>
-          <div><strong>Department:</strong> ${escapeHtml(request.department || "-")}</div>
-          <div><strong>Email:</strong> ${escapeHtml(request.email || "-")}</div>
-          <div><strong>Phone:</strong> ${escapeHtml(request.phone || "-")}</div>
-          <div><strong>Trip:</strong> ${escapeHtml(request.tripDate || "-")} ${escapeHtml(request.startTime || "")} - ${escapeHtml(request.endTime || "")}</div>
-          <div><strong>Passengers:</strong> ${escapeHtml(request.passengers || "-")}</div>
-          <div><strong>Pickup:</strong> ${escapeHtml(request.pickup || "-")}</div>
-          <div><strong>Destination:</strong> ${escapeHtml(request.destination || "-")}</div>
-          <div><strong>Purpose:</strong> ${escapeHtml(request.purpose || "-")}</div>
-          <div><strong>Submitted:</strong> ${escapeHtml(request.submittedAt || "-")}</div>
+          ${renderCommonDetails(request)}
+          ${renderCaseDetails(request)}
         </div>
       `;
 
@@ -121,6 +103,64 @@
     });
   }
 
+  function renderCommonDetails(request) {
+    return [
+      detailRow("หัวข้อ", request.requestTopicLabel || request.requestTopic || "-"),
+      detailRow("กรณี", request.factoryCaseLabel || "-"),
+      detailRow("ผู้ขอใช้", request.requesterName || "-"),
+      detailRow("เบอร์ติดต่อผู้ขอ", request.requesterPhone || "-"),
+      detailRow("อีเมลติดต่อ", request.contactEmail || "-"),
+      detailRow("ส่งคำขอเมื่อ", request.submittedAt || "-"),
+    ].join("");
+  }
+
+  function renderCaseDetails(request) {
+    if (request.requestTopic === "OFF_CYCLE_DELIVERY") {
+      return [
+        detailRow("ชื่อห้าง", request.offcycleStoreName || "-"),
+        detailRow("วันที่ต้องการจัดส่ง", request.offcycleDeliveryDate || "-"),
+        detailRow("จำนวนลังสินค้า", request.offcycleCrates || "-"),
+        detailRow("ยอดเงิน", request.offcycleAmount || "-"),
+      ].join("");
+    }
+
+    if (request.factoryCaseType === "FACTORY_DELIVERY_DOCS") {
+      return [
+        detailRow("ชื่องาน", request.factoryJobName || "-"),
+        detailRow("วันที่จัดส่ง", request.factoryDeliveryDate || "-"),
+        detailRow("เวลาจัดส่ง", request.factoryDeliveryTime || "-"),
+        detailRow("สถานที่จัดส่ง", request.factoryDeliveryLocation || "-"),
+        detailRow("Google Map", request.factoryDeliveryMapUrl || "-"),
+        detailRow("เบอร์ติดต่อผู้รับ/หน้างาน", request.factoryReceiverPhone || "-"),
+        detailRow("เอกสารชั่วคราว", request.factoryTempDocumentRef || "-"),
+        detailRow("ข้อมูลเบิกของ/Reservation", request.factoryReservationRef || "-"),
+      ].join("");
+    }
+
+    if (request.factoryCaseType === "FACTORY_STAFF_SHUTTLE") {
+      return [
+        detailRow("จำนวนผู้โดยสาร", request.shuttlePassengers || "-"),
+        detailRow("วันที่เดินทาง", request.shuttleTravelDate || "-"),
+        detailRow("เวลาเดินทาง", request.shuttleTravelTime || "-"),
+        detailRow("รอรับกลับ", shuttleWaitLabel(request.shuttleReturnWait)),
+        detailRow("สถานที่", request.shuttleLocation || "-"),
+        detailRow("Google Map", request.shuttleMapUrl || "-"),
+      ].join("");
+    }
+
+    return "";
+  }
+
+  function detailRow(label, value) {
+    return `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value || "-")}</div>`;
+  }
+
+  function shuttleWaitLabel(value) {
+    if (value === "WAIT_RETURN") return "รอรับกลับ";
+    if (value === "NO_RETURN") return "ไม่ต้องรอรับกลับ";
+    return value || "-";
+  }
+
   async function approveRequest(requestId, buttonEl) {
     const adminKey = getAdminKey();
     if (!adminKey) {
@@ -129,8 +169,9 @@
     }
 
     const approvedBy = approvedByInput.value.trim() || "Fleet Admin";
-    const confirmed = window.confirm("Approve request " + requestId + " and send email notification?");
-    if (!confirmed) return;
+    if (!window.confirm("Approve request " + requestId + " and send email notification?")) {
+      return;
+    }
 
     try {
       buttonEl.disabled = true;

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scotch webapps1 | Fleet Request</title>
+    <title>Scotch webapps1 | แบบฟอร์มขอใช้รถ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,89 +14,367 @@
   </head>
   <body>
     <main class="page page-request">
-      <section class="hero">
-        <p class="hero-kicker">Scotch Fleet Service</p>
-        <h1>Request a Company Vehicle</h1>
-        <p class="hero-copy">
-          Fast internal workflow for booking company vehicles. Submit details once, then wait for
-          admin approval by email.
-        </p>
-        <div class="hero-pill-row">
-          <span class="hero-pill">Simple 2-step flow</span>
-          <span class="hero-pill">Email approval notice</span>
-          <span class="hero-pill">Google Sheets backend</span>
+      <header class="lp-nav">
+        <a href="#" class="lp-brand">
+          <span class="lp-brand-badge">S</span>
+          <span>Scotch Fleet Request</span>
+        </a>
+        <nav class="lp-links">
+          <a href="#serviceScope">รูปแบบคำขอ</a>
+          <a href="#requestFormSection">กรอกแบบฟอร์ม</a>
+          <a href="admin.html" class="lp-admin-link">Admin</a>
+        </nav>
+      </header>
+
+      <section class="hero hero-landing">
+        <div class="hero-grid">
+          <div>
+            <p class="hero-kicker">Scotch Fleet Service</p>
+            <h1>แบบฟอร์มคำร้องขอใช้รถบริษัท</h1>
+            <p class="hero-copy">
+              จัดการคำร้องขอใช้รถแบบมืออาชีพ เลือกประเภทคำขอให้ถูกต้อง กรอกรายละเอียดให้ครบ และรอผลอนุมัติผ่านอีเมลอัตโนมัติ
+            </p>
+
+            <div class="hero-pill-row">
+              <span class="hero-pill">2 หัวข้อหลัก</span>
+              <span class="hero-pill">3 กรณีการใช้งาน</span>
+              <span class="hero-pill">Approve + Email Notification</span>
+            </div>
+
+            <div class="hero-cta-row">
+              <a class="cta-button" href="#requestFormSection">เริ่มกรอกคำร้อง</a>
+              <a class="cta-link" href="#serviceScope">ดูกรณีที่รองรับ</a>
+            </div>
+          </div>
+
+          <aside class="hero-panel">
+            <h3>Fleet Request Workflow</h3>
+            <ul>
+              <li><strong>Step 1:</strong> เลือกหัวข้อคำขอและกรณีใช้งาน</li>
+              <li><strong>Step 2:</strong> กรอกข้อมูลตามเงื่อนไขที่ระบบกำหนด</li>
+              <li><strong>Step 3:</strong> แอดมินอนุมัติและระบบส่งอีเมลแจ้งผล</li>
+            </ul>
+            <div class="hero-panel-meta">
+              <p>รองรับการใช้งานผ่านมือถือและเดสก์ท็อป</p>
+            </div>
+          </aside>
         </div>
       </section>
 
-      <section class="card request-card">
+      <section id="serviceScope" class="card scope-card">
+        <div class="card-head">
+          <h2>รูปแบบคำขอที่รองรับ</h2>
+          <p>แบ่งเป็น 2 หัวข้อหลัก และ 3 กรณีการใช้งานตามนโยบายรถบริษัท</p>
+        </div>
+        <div class="scope-grid">
+          <article class="scope-item">
+            <p class="scope-no">01</p>
+            <h3>ขอส่งสินค้าไม่ตรงรอบ</h3>
+            <p>ใช้สำหรับการส่งสินค้าแบบเร่งด่วนหรือนอกแผนรอบปกติ</p>
+          </article>
+          <article class="scope-item">
+            <p class="scope-no">02</p>
+            <h3>ขอใช้รถโรงงาน: ส่งสินค้า/เอกสาร</h3>
+            <p>รองรับงานจัดส่งที่ต้องระบุสถานที่ เอกสาร และข้อมูล reservation</p>
+          </article>
+          <article class="scope-item">
+            <p class="scope-no">03</p>
+            <h3>ขอใช้รถโรงงาน: รับ-ส่งพนักงาน</h3>
+            <p>สำหรับผู้โดยสาร 6 คนขึ้นไป พร้อมระบุการรอรับกลับและจุดรับส่ง</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card process-card">
+        <div class="card-head">
+          <h2>ขั้นตอนการทำงาน</h2>
+          <p>กระบวนการตั้งแต่ผู้ขอจนถึงการแจ้งผลอนุมัติ</p>
+        </div>
+        <div class="process-grid">
+          <article class="process-item">
+            <span>1</span>
+            <div>
+              <h3>Submit Request</h3>
+              <p>ผู้ใช้งานส่งแบบฟอร์มตามประเภทคำขอที่เลือก</p>
+            </div>
+          </article>
+          <article class="process-item">
+            <span>2</span>
+            <div>
+              <h3>Admin Review</h3>
+              <p>แอดมินตรวจสอบรายละเอียดคำขอในหน้าอนุมัติ</p>
+            </div>
+          </article>
+          <article class="process-item">
+            <span>3</span>
+            <div>
+              <h3>Approval Notification</h3>
+              <p>เมื่ออนุมัติแล้ว ระบบส่งอีเมลแจ้งผลไปยังผู้ร้องขออัตโนมัติ</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="requestFormSection" class="card request-card">
         <div class="card-head">
           <h2>Vehicle Request Form</h2>
-          <p>Fill all required fields before submitting.</p>
+          <p>กรอกข้อมูลให้ครบตามหัวข้อและกรณีที่เลือก</p>
         </div>
 
-        <form id="requestForm" class="form-grid" novalidate>
-          <label>
-            <span>Employee name *</span>
-            <input name="employeeName" type="text" required />
-          </label>
+        <form id="requestForm" class="form-stack" novalidate>
+          <section class="form-section">
+            <h3>1) เลือกหัวข้อคำขอ</h3>
+            <p class="section-copy">เลือกรายการหลักก่อน ระบบจะแสดงฟิลด์ตามเงื่อนไข</p>
 
-          <label>
-            <span>Department *</span>
-            <input name="department" type="text" required />
-          </label>
+            <div class="choice-grid">
+              <label class="choice-card">
+                <input type="radio" name="requestTopic" value="OFF_CYCLE_DELIVERY" />
+                <strong>ขอส่งสินค้าไม่ตรงรอบ</strong>
+                <small>สำหรับการจัดส่งนอกแผนรอบปกติ</small>
+              </label>
+              <label class="choice-card">
+                <input type="radio" name="requestTopic" value="FACTORY_CAR" />
+                <strong>ขอใช้รถโรงงาน</strong>
+                <small>ส่งสินค้า/เอกสาร หรือ รับ-ส่งพนักงาน</small>
+              </label>
+            </div>
+            <p class="field-error" data-error-for="requestTopic"></p>
 
-          <label>
-            <span>Email *</span>
-            <input name="email" type="email" required />
-          </label>
+            <div id="factoryCaseBlock" class="conditional-block hidden">
+              <label>
+                <span>กรณีของการขอใช้รถโรงงาน *</span>
+                <select name="factoryCaseType">
+                  <option value="">-- เลือกกรณี --</option>
+                  <option value="FACTORY_DELIVERY_DOCS">ส่งสินค้า/เอกสาร</option>
+                  <option value="FACTORY_STAFF_SHUTTLE">รับ-ส่งพนักงาน</option>
+                </select>
+              </label>
+              <p class="field-error" data-error-for="factoryCaseType"></p>
+            </div>
+          </section>
 
-          <label>
-            <span>Phone *</span>
-            <input name="phone" type="tel" required />
-          </label>
+          <section class="form-section">
+            <h3>2) ผู้ขอใช้รถและการติดต่อ</h3>
+            <p class="section-copy">ข้อมูลส่วนนี้ต้องกรอกทุกกรณี</p>
+            <div class="form-grid">
+              <label>
+                <span>ผู้ขอใช้ *</span>
+                <input
+                  name="requesterName"
+                  type="text"
+                  maxlength="100"
+                  placeholder="ชื่อผู้ขอใช้รถ"
+                  required
+                />
+                <p class="field-error" data-error-for="requesterName"></p>
+              </label>
 
-          <label>
-            <span>Trip date *</span>
-            <input name="tripDate" type="date" required />
-          </label>
+              <label>
+                <span>เบอร์ติดต่อผู้ขอ *</span>
+                <input
+                  name="requesterPhone"
+                  type="tel"
+                  maxlength="20"
+                  placeholder="08XXXXXXXX"
+                  required
+                />
+                <p class="field-error" data-error-for="requesterPhone"></p>
+              </label>
 
-          <label>
-            <span>Start time *</span>
-            <input name="startTime" type="time" required />
-          </label>
+              <label class="col-span-2">
+                <span>อีเมลติดต่อสำหรับรับผลอนุมัติ *</span>
+                <input
+                  name="contactEmail"
+                  type="email"
+                  maxlength="120"
+                  placeholder="name@company.com"
+                  autocomplete="email"
+                  required
+                />
+                <p class="field-error" data-error-for="contactEmail"></p>
+              </label>
+            </div>
+          </section>
 
-          <label>
-            <span>End time *</span>
-            <input name="endTime" type="time" required />
-          </label>
+          <section id="offCycleBlock" class="form-section conditional-block hidden">
+            <h3>หัวข้อ: ขอส่งสินค้าไม่ตรงรอบ</h3>
+            <p class="section-copy">กรอกข้อมูลการจัดส่งนอกแผนรอบปกติ</p>
+            <div class="form-grid">
+              <label>
+                <span>ชื่อห้าง *</span>
+                <input
+                  name="offcycleStoreName"
+                  type="text"
+                  maxlength="150"
+                  placeholder="ชื่อห้าง/ลูกค้า"
+                />
+                <p class="field-error" data-error-for="offcycleStoreName"></p>
+              </label>
 
-          <label>
-            <span>Passengers *</span>
-            <input name="passengers" type="number" min="1" max="20" required />
-          </label>
+              <label>
+                <span>วันที่ต้องการจัดส่ง *</span>
+                <input name="offcycleDeliveryDate" type="date" />
+                <p class="field-error" data-error-for="offcycleDeliveryDate"></p>
+              </label>
 
-          <label class="col-span-2">
-            <span>Pickup location *</span>
-            <input name="pickup" type="text" required />
-          </label>
+              <label>
+                <span>จำนวนลังสินค้า *</span>
+                <input name="offcycleCrates" type="number" min="1" step="1" />
+                <p class="field-error" data-error-for="offcycleCrates"></p>
+              </label>
 
-          <label class="col-span-2">
-            <span>Destination *</span>
-            <input name="destination" type="text" required />
-          </label>
+              <label>
+                <span>ยอดเงิน *</span>
+                <input name="offcycleAmount" type="number" min="0" step="0.01" />
+                <p class="field-error" data-error-for="offcycleAmount"></p>
+              </label>
+            </div>
+          </section>
 
-          <label class="col-span-2">
-            <span>Purpose *</span>
-            <textarea name="purpose" rows="3" required></textarea>
-          </label>
+          <section id="factoryDeliveryBlock" class="form-section conditional-block hidden">
+            <h3>หัวข้อ: ขอใช้รถโรงงาน (ส่งสินค้า/เอกสาร)</h3>
+            <p class="section-copy">กรณีจัดส่งสินค้า หรือจัดส่งเอกสาร</p>
+            <div class="form-grid">
+              <label>
+                <span>ชื่องาน *</span>
+                <input name="factoryJobName" type="text" maxlength="150" />
+                <p class="field-error" data-error-for="factoryJobName"></p>
+              </label>
 
-          <label class="col-span-2">
-            <span>Additional note</span>
-            <textarea name="notes" rows="2"></textarea>
-          </label>
+              <label>
+                <span>วันที่จัดส่ง *</span>
+                <input name="factoryDeliveryDate" type="date" />
+                <p class="field-error" data-error-for="factoryDeliveryDate"></p>
+              </label>
 
-          <div class="col-span-2 form-actions">
-            <button id="submitBtn" type="submit">Submit request</button>
+              <label>
+                <span>เวลาจัดส่ง *</span>
+                <input name="factoryDeliveryTime" type="time" />
+                <p class="field-error" data-error-for="factoryDeliveryTime"></p>
+              </label>
+
+              <label>
+                <span>เบอร์ติดต่อผู้รับ/หน้างาน *</span>
+                <input name="factoryReceiverPhone" type="tel" maxlength="20" />
+                <p class="field-error" data-error-for="factoryReceiverPhone"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>สถานที่จัดส่ง *</span>
+                <input
+                  name="factoryDeliveryLocation"
+                  type="text"
+                  maxlength="250"
+                  placeholder="ที่อยู่หรือรายละเอียดสถานที่"
+                />
+                <p class="field-error" data-error-for="factoryDeliveryLocation"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>Google Map link / URL *</span>
+                <input
+                  name="factoryDeliveryMapUrl"
+                  type="url"
+                  maxlength="400"
+                  placeholder="https://maps.google.com/..."
+                />
+                <p class="field-error" data-error-for="factoryDeliveryMapUrl"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>เอกสารใบส่งสินค้าชั่วคราว/ใบคืนสินค้าชั่วคราว *</span>
+                <textarea
+                  name="factoryTempDocumentRef"
+                  rows="2"
+                  maxlength="400"
+                  placeholder="ระบุเลขเอกสารหรือแนบลิงก์เอกสาร"
+                ></textarea>
+                <p class="field-error" data-error-for="factoryTempDocumentRef"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>เบิกของจากไหน (ภาพแคป E-Mail Reservation) *</span>
+                <textarea
+                  name="factoryReservationRef"
+                  rows="2"
+                  maxlength="400"
+                  placeholder="ระบุจุดเบิกหรือแนบลิงก์ภาพแคป"
+                ></textarea>
+                <p class="field-error" data-error-for="factoryReservationRef"></p>
+              </label>
+            </div>
+          </section>
+
+          <section id="factoryShuttleBlock" class="form-section conditional-block hidden">
+            <h3>หัวข้อ: ขอใช้รถโรงงาน (รับ-ส่งพนักงาน)</h3>
+            <p class="section-copy">กรณีรับ-ส่งพนักงาน ต้องมีผู้โดยสาร 6 คนขึ้นไป</p>
+            <div class="form-grid">
+              <label>
+                <span>จำนวนผู้โดยสาร *</span>
+                <input name="shuttlePassengers" type="number" min="6" step="1" />
+                <p class="field-error" data-error-for="shuttlePassengers"></p>
+              </label>
+
+              <label>
+                <span>วันที่เดินทาง *</span>
+                <input name="shuttleTravelDate" type="date" />
+                <p class="field-error" data-error-for="shuttleTravelDate"></p>
+              </label>
+
+              <label>
+                <span>เวลาเดินทาง *</span>
+                <input name="shuttleTravelTime" type="time" />
+                <p class="field-error" data-error-for="shuttleTravelTime"></p>
+              </label>
+
+              <fieldset class="option-fieldset">
+                <legend>รอรับกลับ *</legend>
+                <label class="check-inline">
+                  <input type="radio" name="shuttleReturnWait" value="WAIT_RETURN" />
+                  <span>รอรับกลับ</span>
+                </label>
+                <label class="check-inline">
+                  <input type="radio" name="shuttleReturnWait" value="NO_RETURN" />
+                  <span>ไม่ต้องรอรับกลับ</span>
+                </label>
+                <p class="field-error" data-error-for="shuttleReturnWait"></p>
+              </fieldset>
+
+              <label class="col-span-2">
+                <span>สถานที่ *</span>
+                <input
+                  name="shuttleLocation"
+                  type="text"
+                  maxlength="250"
+                  placeholder="จุดรับ/จุดส่ง"
+                />
+                <p class="field-error" data-error-for="shuttleLocation"></p>
+              </label>
+
+              <label class="col-span-2">
+                <span>Google Map link / URL *</span>
+                <input
+                  name="shuttleMapUrl"
+                  type="url"
+                  maxlength="400"
+                  placeholder="https://maps.google.com/..."
+                />
+                <p class="field-error" data-error-for="shuttleMapUrl"></p>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section form-section-tight">
+            <label class="check-row">
+              <input name="policyAgree" type="checkbox" />
+              <span>ขอยืนยันว่าข้อมูลทั้งหมดถูกต้อง และเป็นคำขอเพื่อการทำงานของบริษัท</span>
+            </label>
+            <p class="field-error" data-error-for="policyAgree"></p>
+          </section>
+
+          <div class="form-actions">
+            <button id="submitBtn" type="submit">ส่งคำร้อง</button>
+            <button id="clearDraftBtn" type="button" class="button-secondary">ล้างแบบร่าง</button>
             <p id="formMessage" class="form-message" aria-live="polite"></p>
           </div>
         </form>
