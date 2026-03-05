@@ -1,8 +1,9 @@
 const CONFIG = {
-  SHEET_NAME: "Requests",
-  ADMIN_KEY: "CHANGE_ME_TO_A_STRONG_ADMIN_KEY",
-  TIME_ZONE: "Asia/Bangkok",
   APP_NAME: "Scotch webapps1",
+  TIME_ZONE: "Asia/Bangkok",
+  SHEET_NAME: "Requests",
+  SPREADSHEET_ID: "10b7BtWAWiyZ-AqYFmwuzQQLPsyjDOEr642Ml6dJ-Mx8",
+  ADMIN_KEY: "CHANGE_ME_TO_A_STRONG_ADMIN_KEY",
   UPLOAD_FOLDER_ID: "1Bm1WDqIHaxMLzBmzU5iyRvxSlLL99PGS",
   UPLOAD_FOLDER_NAME: "ScotchWebapps1_Uploads",
   MAKE_UPLOAD_PUBLIC: true,
@@ -60,6 +61,7 @@ const HEADERS = [
 function doGet(e) {
   try {
     const action = ((e && e.parameter && e.parameter.action) || "health").toLowerCase();
+
     if (action === "health") {
       return jsonResponse({
         ok: true,
@@ -68,10 +70,12 @@ function doGet(e) {
         time: nowIso(),
       });
     }
+
     if (action === "listrequests") {
       verifyAdminKey(e.parameter.adminKey);
       return jsonResponse({ ok: true, requests: readRequests() });
     }
+
     return jsonResponse({ ok: false, error: "Unknown action: " + action });
   } catch (error) {
     return jsonResponse({ ok: false, error: normalizeErrorMessage(error) });
@@ -86,6 +90,7 @@ function doPost(e) {
     if (action === "submitrequest") {
       return submitRequest(payload.data || {});
     }
+
     if (action === "approverequest") {
       return approveRequest(payload);
     }
@@ -170,16 +175,12 @@ function submitRequest(data) {
 function approveRequest(payload) {
   verifyAdminKey(payload.adminKey);
   const requestId = safeText(payload.requestId);
-  if (!requestId) {
-    throw new Error("requestId is required.");
-  }
+  if (!requestId) throw new Error("requestId is required.");
 
   const approvedBy = safeText(payload.approvedBy || "Fleet Admin");
   const sheet = getOrCreateSheet();
   const values = sheet.getDataRange().getValues();
-  if (values.length <= 1) {
-    throw new Error("No requests found.");
-  }
+  if (values.length <= 1) throw new Error("No requests found.");
 
   let foundRow = -1;
   for (let i = 1; i < values.length; i += 1) {
@@ -188,10 +189,7 @@ function approveRequest(payload) {
       break;
     }
   }
-
-  if (foundRow === -1) {
-    throw new Error("Request not found: " + requestId);
-  }
+  if (foundRow === -1) throw new Error("Request not found: " + requestId);
 
   const statusCol = headerIndex("status") + 1;
   const approvedAtCol = headerIndex("approvedAt") + 1;
@@ -217,6 +215,7 @@ function approveRequest(payload) {
   const request = rowToRequest(requestRow);
   request.approvedAt = approvedAt;
   request.approvedBy = approvedBy;
+
   const emailResult = sendApprovalEmail(request);
   const emailStatusText = emailResult.ok ? "SENT" : "FAILED: " + emailResult.error;
   sheet.getRange(foundRow, emailStatusCol).setValue(emailStatusText);
@@ -251,9 +250,7 @@ function rowToRequest(row) {
 
 function sendApprovalEmail(request) {
   const recipient = safeText(request.contactEmail);
-  if (!recipient) {
-    return { ok: false, error: "Missing recipient email." };
-  }
+  if (!recipient) return { ok: false, error: "Missing recipient email." };
 
   const subject = "อนุมัติคำขอใช้รถแล้ว: " + request.requestId;
   const lines = [
@@ -362,9 +359,7 @@ function sanitizeAttachments(data) {
 }
 
 function normalizeAttachment(rawAttachment) {
-  if (!rawAttachment || typeof rawAttachment !== "object") {
-    return emptyAttachment();
-  }
+  if (!rawAttachment || typeof rawAttachment !== "object") return emptyAttachment();
   return {
     name: safeText(rawAttachment.name),
     mimeType: safeText(rawAttachment.mimeType).toLowerCase(),
@@ -374,63 +369,39 @@ function normalizeAttachment(rawAttachment) {
 }
 
 function emptyAttachment() {
-  return {
-    name: "",
-    mimeType: "",
-    base64: "",
-    size: 0,
-  };
+  return { name: "", mimeType: "", base64: "", size: 0 };
 }
 
 function emptyUploadMeta() {
-  return {
-    name: "",
-    url: "",
-    downloadUrl: "",
-    fileId: "",
-  };
+  return { name: "", url: "", downloadUrl: "", fileId: "" };
 }
 
 function safeBase64(value) {
   const text = safeText(value);
   if (!text) return "";
   const commaIndex = text.indexOf(",");
-  if (commaIndex > -1) {
-    return safeText(text.slice(commaIndex + 1));
-  }
+  if (commaIndex > -1) return safeText(text.slice(commaIndex + 1));
   return text;
 }
 
 function validateSubmission(data, attachments) {
   const allowedTopics = [TOPIC_OFF_CYCLE, TOPIC_FACTORY];
-  if (allowedTopics.indexOf(data.requestTopic) === -1) {
-    throw new Error("Invalid request topic.");
-  }
+  if (allowedTopics.indexOf(data.requestTopic) === -1) throw new Error("Invalid request topic.");
 
   requireField(data, "requesterName");
   requireField(data, "requesterPhone");
   requireField(data, "contactEmail");
-  if (!isValidPhone(data.requesterPhone)) {
-    throw new Error("Invalid requesterPhone.");
-  }
-  if (!isValidEmail(data.contactEmail)) {
-    throw new Error("Invalid contactEmail.");
-  }
-  if (data.policyAgree !== "YES") {
-    throw new Error("Policy agreement is required.");
-  }
+  if (!isValidPhone(data.requesterPhone)) throw new Error("Invalid requesterPhone.");
+  if (!isValidEmail(data.contactEmail)) throw new Error("Invalid contactEmail.");
+  if (data.policyAgree !== "YES") throw new Error("Policy agreement is required.");
 
   if (data.requestTopic === TOPIC_OFF_CYCLE) {
     requireField(data, "offcycleStoreName");
     requireField(data, "offcycleDeliveryDate");
     requireField(data, "offcycleCrates");
     requireField(data, "offcycleAmount");
-    if (!isIntAtLeast(data.offcycleCrates, 1)) {
-      throw new Error("offcycleCrates must be >= 1.");
-    }
-    if (!isNumberAtLeast(data.offcycleAmount, 0)) {
-      throw new Error("offcycleAmount must be >= 0.");
-    }
+    if (!isIntAtLeast(data.offcycleCrates, 1)) throw new Error("offcycleCrates must be >= 1.");
+    if (!isNumberAtLeast(data.offcycleAmount, 0)) throw new Error("offcycleAmount must be >= 0.");
   }
 
   if (data.requestTopic === TOPIC_FACTORY) {
@@ -446,12 +417,8 @@ function validateSubmission(data, attachments) {
       requireField(data, "factoryDeliveryLocation");
       requireField(data, "factoryDeliveryMapUrl");
       requireField(data, "factoryReceiverPhone");
-      if (!isValidUrl(data.factoryDeliveryMapUrl)) {
-        throw new Error("Invalid factoryDeliveryMapUrl.");
-      }
-      if (!isValidPhone(data.factoryReceiverPhone)) {
-        throw new Error("Invalid factoryReceiverPhone.");
-      }
+      if (!isValidUrl(data.factoryDeliveryMapUrl)) throw new Error("Invalid factoryDeliveryMapUrl.");
+      if (!isValidPhone(data.factoryReceiverPhone)) throw new Error("Invalid factoryReceiverPhone.");
       assertValidAttachment(attachments.factoryTempDocumentImage, "factoryTempDocumentImage");
       assertValidAttachment(attachments.factoryReservationImage, "factoryReservationImage");
     }
@@ -463,33 +430,23 @@ function validateSubmission(data, attachments) {
       requireField(data, "shuttleReturnWait");
       requireField(data, "shuttleLocation");
       requireField(data, "shuttleMapUrl");
-      if (!isIntAtLeast(data.shuttlePassengers, 6)) {
-        throw new Error("shuttlePassengers must be >= 6.");
-      }
+      if (!isIntAtLeast(data.shuttlePassengers, 6)) throw new Error("shuttlePassengers must be >= 6.");
       if (data.shuttleReturnWait !== "WAIT_RETURN" && data.shuttleReturnWait !== "NO_RETURN") {
         throw new Error("Invalid shuttleReturnWait.");
       }
-      if (!isValidUrl(data.shuttleMapUrl)) {
-        throw new Error("Invalid shuttleMapUrl.");
-      }
+      if (!isValidUrl(data.shuttleMapUrl)) throw new Error("Invalid shuttleMapUrl.");
     }
   }
 }
 
 function assertValidAttachment(attachment, fieldName) {
-  if (!attachment || !attachment.base64) {
-    throw new Error("Missing required attachment: " + fieldName);
-  }
+  if (!attachment || !attachment.base64) throw new Error("Missing required attachment: " + fieldName);
   if (ALLOWED_IMAGE_MIME_TYPES.indexOf(attachment.mimeType) === -1) {
     throw new Error("Invalid attachment mime type: " + fieldName);
   }
   const decodedBytes = estimateDecodedByteSize(attachment.base64);
-  if (decodedBytes <= 0) {
-    throw new Error("Invalid attachment content: " + fieldName);
-  }
-  if (decodedBytes > CONFIG.MAX_UPLOAD_BYTES) {
-    throw new Error("Attachment is too large: " + fieldName);
-  }
+  if (decodedBytes <= 0) throw new Error("Invalid attachment content: " + fieldName);
+  if (decodedBytes > CONFIG.MAX_UPLOAD_BYTES) throw new Error("Attachment is too large: " + fieldName);
 }
 
 function estimateDecodedByteSize(base64) {
@@ -502,12 +459,8 @@ function estimateDecodedByteSize(base64) {
 
 function saveAttachmentToDrive(attachment, requestId, label) {
   const bytes = Utilities.base64Decode(attachment.base64);
-  if (!bytes || !bytes.length) {
-    throw new Error("Attachment is empty: " + label);
-  }
-  if (bytes.length > CONFIG.MAX_UPLOAD_BYTES) {
-    throw new Error("Attachment exceeds limit: " + label);
-  }
+  if (!bytes || !bytes.length) throw new Error("Attachment is empty: " + label);
+  if (bytes.length > CONFIG.MAX_UPLOAD_BYTES) throw new Error("Attachment exceeds limit: " + label);
 
   const fileName = buildAttachmentFileName(attachment.name, requestId, label, attachment.mimeType);
   const blob = Utilities.newBlob(bytes, attachment.mimeType, fileName);
@@ -554,21 +507,67 @@ function getUploadFolder() {
     return DriveApp.getFolderById(CONFIG.UPLOAD_FOLDER_ID);
   }
   const folders = DriveApp.getFoldersByName(CONFIG.UPLOAD_FOLDER_NAME);
-  if (folders.hasNext()) {
-    return folders.next();
-  }
+  if (folders.hasNext()) return folders.next();
   return DriveApp.createFolder(CONFIG.UPLOAD_FOLDER_NAME);
 }
 
-function authorizeDriveAccess() {
-  const folder = getUploadFolder();
-  return "Drive access OK. Folder ID: " + folder.getId();
+function getSpreadsheet() {
+  if (safeText(CONFIG.SPREADSHEET_ID)) {
+    return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  }
+  const activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (activeSpreadsheet) return activeSpreadsheet;
+  throw new Error("Spreadsheet not found. Set CONFIG.SPREADSHEET_ID.");
+}
+
+function getOrCreateSheet() {
+  const spreadsheet = getSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(CONFIG.SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(CONFIG.SHEET_NAME);
+  }
+
+  const firstRow = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+  const hasHeaders = HEADERS.every(function (header, idx) {
+    return String(firstRow[idx] || "") === header;
+  });
+  if (!hasHeaders) {
+    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+  }
+  return sheet;
+}
+
+function headerIndex(field) {
+  const index = HEADERS.indexOf(field);
+  if (index === -1) throw new Error("Header not found: " + field);
+  return index;
+}
+
+function parsePayload(e) {
+  if (e && e.parameter && e.parameter.payload) {
+    return JSON.parse(e.parameter.payload);
+  }
+  if (e && e.postData && e.postData.contents) {
+    const raw = safeText(e.postData.contents);
+    if (raw) {
+      if (raw.charAt(0) === "{") return JSON.parse(raw);
+      if (raw.indexOf("payload=") === 0) {
+        const decoded = decodeURIComponent(raw.replace(/^payload=/, ""));
+        return JSON.parse(decoded);
+      }
+    }
+  }
+  throw new Error("Missing payload.");
+}
+
+function verifyAdminKey(inputKey) {
+  if (safeText(inputKey) !== CONFIG.ADMIN_KEY) {
+    throw new Error("Invalid admin key.");
+  }
 }
 
 function requireField(data, field) {
-  if (!safeText(data[field])) {
-    throw new Error("Missing required field: " + field);
-  }
+  if (!safeText(data[field])) throw new Error("Missing required field: " + field);
 }
 
 function isValidPhone(phone) {
@@ -595,47 +594,6 @@ function isValidUrl(url) {
   return /^https?:\/\/.+/i.test(text);
 }
 
-function getOrCreateSheet() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = spreadsheet.getSheetByName(CONFIG.SHEET_NAME);
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet(CONFIG.SHEET_NAME);
-  }
-
-  const firstRow = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
-  const hasHeaders = HEADERS.every(function (header, idx) {
-    return String(firstRow[idx] || "") === header;
-  });
-  if (!hasHeaders) {
-    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-  }
-  return sheet;
-}
-
-function headerIndex(field) {
-  const index = HEADERS.indexOf(field);
-  if (index === -1) {
-    throw new Error("Header not found: " + field);
-  }
-  return index;
-}
-
-function parsePayload(e) {
-  if (e && e.parameter && e.parameter.payload) {
-    return JSON.parse(e.parameter.payload);
-  }
-  if (e && e.postData && e.postData.contents) {
-    return JSON.parse(e.postData.contents);
-  }
-  throw new Error("Missing payload.");
-}
-
-function verifyAdminKey(inputKey) {
-  if (safeText(inputKey) !== CONFIG.ADMIN_KEY) {
-    throw new Error("Invalid admin key.");
-  }
-}
-
 function safeText(value) {
   return String(value == null ? "" : value).trim();
 }
@@ -650,18 +608,28 @@ function jsonResponse(payload) {
   );
 }
 
+function authorizeDriveAccess() {
+  const spreadsheet = getSpreadsheet();
+  const folder = getUploadFolder();
+  return (
+    "Authorization OK. Spreadsheet: " +
+    spreadsheet.getId() +
+    " | Folder: " +
+    folder.getId()
+  );
+}
+
 function normalizeErrorMessage(error) {
   const raw = safeText(error && error.message ? error.message : error);
-  const driveAuthError =
+  const isDriveAuthError =
     raw.indexOf("DriveApp.getFolderById") > -1 ||
-    raw.indexOf("DriveApp") > -1 && raw.indexOf("permission") > -1 ||
-    raw.indexOf("https://www.googleapis.com/auth/drive") > -1;
+    raw.indexOf("https://www.googleapis.com/auth/drive") > -1 ||
+    raw.indexOf("authorization") > -1 && raw.indexOf("DriveApp") > -1;
 
-  if (driveAuthError) {
+  if (isDriveAuthError) {
     return (
       "Apps Script ยังไม่ได้อนุญาตสิทธิ์ Google Drive. " +
-      "ให้เปิด Apps Script แล้ว Run ฟังก์ชัน authorizeDriveAccess() 1 ครั้งเพื่อกดยืนยันสิทธิ์, " +
-      "จากนั้น Deploy Web App เป็นเวอร์ชันใหม่โดยตั้ง Execute as: Me."
+      "ให้ Run ฟังก์ชัน authorizeDriveAccess() 1 ครั้ง แล้ว Deploy Web App เวอร์ชันใหม่ (Execute as: Me)."
     );
   }
 
