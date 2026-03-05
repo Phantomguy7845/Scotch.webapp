@@ -21,6 +21,7 @@
   init();
 
   function init() {
+    setupAmountFormatting();
     setMinDate();
     restoreDraft();
     updateConditionalBlocks();
@@ -40,6 +41,18 @@
         updateChoiceCards();
       });
     }
+  }
+
+  function setupAmountFormatting() {
+    const amountInput = form.elements.offcycleAmount;
+    if (!amountInput) return;
+
+    amountInput.addEventListener("input", () => {
+      amountInput.value = formatCurrencyText(amountInput.value);
+    });
+    amountInput.addEventListener("blur", () => {
+      amountInput.value = normalizeCurrencyForSubmit(amountInput.value);
+    });
   }
 
   async function onSubmit(event) {
@@ -112,6 +125,7 @@
 
     data.policyAgree = form.elements.policyAgree.checked ? "YES" : "NO";
     data.offcycleHasPo = form.elements.offcycleHasPo.checked ? "YES" : "NO";
+    data.offcycleAmount = normalizeCurrencyForSubmit(data.offcycleAmount);
     data.requestTopicLabel = getTopicLabel(data.requestTopic);
     data.factoryCaseLabel = getFactoryCaseLabel(data.factoryCaseType);
 
@@ -453,6 +467,10 @@
           }
         });
       });
+
+      if (form.elements.offcycleAmount) {
+        form.elements.offcycleAmount.value = formatCurrencyText(form.elements.offcycleAmount.value);
+      }
     } catch (error) {
       localStorage.removeItem(DRAFT_KEY);
     }
@@ -495,8 +513,49 @@
   }
 
   function isNumberAtLeast(value, min) {
-    const num = Number(value);
+    const num = parseCurrencyNumber(value);
     return Number.isFinite(num) && num >= min;
+  }
+
+  function parseCurrencyNumber(value) {
+    const text = String(value || "").replace(/,/g, "").trim();
+    if (!text || text === ".") return Number.NaN;
+    return Number(text);
+  }
+
+  function formatCurrencyText(value) {
+    let text = String(value || "").replace(/,/g, "").trim();
+    if (!text) return "";
+
+    text = text.replace(/[^\d.]/g, "");
+    const firstDot = text.indexOf(".");
+    if (firstDot > -1) {
+      text = text.slice(0, firstDot + 1) + text.slice(firstDot + 1).replace(/\./g, "");
+    }
+
+    let integerPart = text;
+    let decimalPart = "";
+    if (firstDot > -1) {
+      const parts = text.split(".");
+      integerPart = parts[0];
+      decimalPart = parts[1] || "";
+    }
+
+    integerPart = integerPart.replace(/^0+(?=\d)/, "");
+    if (!integerPart) integerPart = "0";
+    const groupedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    if (firstDot > -1) {
+      return groupedInt + "." + decimalPart.slice(0, 2);
+    }
+    return groupedInt;
+  }
+
+  function normalizeCurrencyForSubmit(value) {
+    const formatted = formatCurrencyText(value);
+    if (!formatted) return "";
+    if (formatted.endsWith(".")) return formatted.slice(0, -1);
+    return formatted;
   }
 
   function isValidUrl(url) {

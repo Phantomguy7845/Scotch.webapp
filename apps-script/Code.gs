@@ -575,7 +575,7 @@ function sanitizeTextData(data) {
     offcycleStoreName: safeText(source.offcycleStoreName),
     offcycleDeliveryDate: safeText(source.offcycleDeliveryDate),
     offcycleCrates: safeText(source.offcycleCrates),
-    offcycleAmount: safeText(source.offcycleAmount),
+    offcycleAmount: formatAmountText(source.offcycleAmount),
     offcycleHasPo: safeText(source.offcycleHasPo) === "YES" ? "YES" : "NO",
     factoryJobName: safeText(source.factoryJobName),
     factoryDeliveryDate: safeText(source.factoryDeliveryDate),
@@ -885,8 +885,30 @@ function isIntAtLeast(value, min) {
 }
 
 function isNumberAtLeast(value, min) {
-  const num = Number(value);
+  const num = parseNumberValue(value);
   return !isNaN(num) && num >= min;
+}
+
+function parseNumberValue(value) {
+  const text = safeText(value).replace(/,/g, "");
+  if (!text || text === ".") return NaN;
+  return Number(text);
+}
+
+function formatAmountText(value) {
+  const raw = safeText(value).replace(/,/g, "");
+  if (!raw) return "";
+  const parts = raw.split(".");
+  const integerPartRaw = safeText(parts[0]).replace(/[^\d]/g, "");
+  if (!integerPartRaw) return "";
+  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, "") || "0";
+  const groupedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+  if (parts.length > 1) {
+    const decimalPart = safeText(parts.slice(1).join("")).replace(/[^\d]/g, "").slice(0, 2);
+    if (decimalPart) return groupedInt + "." + decimalPart;
+  }
+  return groupedInt;
 }
 
 function isValidUrl(url) {
