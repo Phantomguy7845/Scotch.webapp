@@ -114,6 +114,12 @@ function doPost(e) {
 }
 
 function submitRequest(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).length === 0) {
+    throw new Error(
+      "submitRequest requires request data from web form. Use deployed Web App URL instead of clicking Run on submitRequest().",
+    );
+  }
+
   const clean = sanitizeTextData(data);
   const attachments = sanitizeAttachments(data);
   validateSubmission(clean, attachments);
@@ -543,42 +549,44 @@ function shuttleWaitLabel(value) {
 }
 
 function sanitizeTextData(data) {
+  const source = data && typeof data === "object" ? data : {};
   return {
-    requestTopic: safeText(data.requestTopic),
-    requestTopicLabel: safeText(data.requestTopicLabel),
-    factoryCaseType: safeText(data.factoryCaseType),
-    factoryCaseLabel: safeText(data.factoryCaseLabel),
-    requesterName: safeText(data.requesterName),
-    requesterPhone: safeText(data.requesterPhone),
-    contactEmail: safeText(data.contactEmail),
-    offcycleStoreName: safeText(data.offcycleStoreName),
-    offcycleDeliveryDate: safeText(data.offcycleDeliveryDate),
-    offcycleCrates: safeText(data.offcycleCrates),
-    offcycleAmount: safeText(data.offcycleAmount),
-    offcycleHasPo: safeText(data.offcycleHasPo) === "YES" ? "YES" : "NO",
-    factoryJobName: safeText(data.factoryJobName),
-    factoryDeliveryDate: safeText(data.factoryDeliveryDate),
-    factoryDeliveryTime: safeText(data.factoryDeliveryTime),
-    factoryDeliveryLocation: safeText(data.factoryDeliveryLocation),
-    factoryDeliveryMapUrl: safeText(data.factoryDeliveryMapUrl),
-    factoryReceiverPhone: safeText(data.factoryReceiverPhone),
-    factoryTempDocumentRef: safeText(data.factoryTempDocumentRef),
-    factoryReservationRef: safeText(data.factoryReservationRef),
-    shuttlePassengers: safeText(data.shuttlePassengers),
-    shuttleTravelDate: safeText(data.shuttleTravelDate),
-    shuttleTravelTime: safeText(data.shuttleTravelTime),
-    shuttleReturnWait: safeText(data.shuttleReturnWait),
-    shuttleLocation: safeText(data.shuttleLocation),
-    shuttleMapUrl: safeText(data.shuttleMapUrl),
-    policyAgree: safeText(data.policyAgree),
+    requestTopic: safeText(source.requestTopic),
+    requestTopicLabel: safeText(source.requestTopicLabel),
+    factoryCaseType: safeText(source.factoryCaseType),
+    factoryCaseLabel: safeText(source.factoryCaseLabel),
+    requesterName: safeText(source.requesterName),
+    requesterPhone: safeText(source.requesterPhone),
+    contactEmail: safeText(source.contactEmail),
+    offcycleStoreName: safeText(source.offcycleStoreName),
+    offcycleDeliveryDate: safeText(source.offcycleDeliveryDate),
+    offcycleCrates: safeText(source.offcycleCrates),
+    offcycleAmount: safeText(source.offcycleAmount),
+    offcycleHasPo: safeText(source.offcycleHasPo) === "YES" ? "YES" : "NO",
+    factoryJobName: safeText(source.factoryJobName),
+    factoryDeliveryDate: safeText(source.factoryDeliveryDate),
+    factoryDeliveryTime: safeText(source.factoryDeliveryTime),
+    factoryDeliveryLocation: safeText(source.factoryDeliveryLocation),
+    factoryDeliveryMapUrl: safeText(source.factoryDeliveryMapUrl),
+    factoryReceiverPhone: safeText(source.factoryReceiverPhone),
+    factoryTempDocumentRef: safeText(source.factoryTempDocumentRef),
+    factoryReservationRef: safeText(source.factoryReservationRef),
+    shuttlePassengers: safeText(source.shuttlePassengers),
+    shuttleTravelDate: safeText(source.shuttleTravelDate),
+    shuttleTravelTime: safeText(source.shuttleTravelTime),
+    shuttleReturnWait: safeText(source.shuttleReturnWait),
+    shuttleLocation: safeText(source.shuttleLocation),
+    shuttleMapUrl: safeText(source.shuttleMapUrl),
+    policyAgree: safeText(source.policyAgree),
   };
 }
 
 function sanitizeAttachments(data) {
+  const source = data && typeof data === "object" ? data : {};
   return {
-    offcyclePoImage: normalizeAttachment(data.offcyclePoImage),
-    factoryTempDocumentImage: normalizeAttachment(data.factoryTempDocumentImage),
-    factoryReservationImage: normalizeAttachment(data.factoryReservationImage),
+    offcyclePoImage: normalizeAttachment(source.offcyclePoImage),
+    factoryTempDocumentImage: normalizeAttachment(source.factoryTempDocumentImage),
+    factoryReservationImage: normalizeAttachment(source.factoryReservationImage),
   };
 }
 
@@ -874,10 +882,20 @@ function authorizeDriveAccess() {
 
 function normalizeErrorMessage(error) {
   const raw = safeText(error && error.message ? error.message : error);
+  const isDirectSubmitRunError =
+    raw.indexOf("submitRequest requires request data from web form") > -1 ||
+    (raw.indexOf("Cannot read properties of undefined") > -1 && raw.indexOf("requestTopic") > -1);
   const isDriveAuthError =
     raw.indexOf("DriveApp.getFolderById") > -1 ||
     raw.indexOf("https://www.googleapis.com/auth/drive") > -1 ||
     raw.indexOf("authorization") > -1 && raw.indexOf("DriveApp") > -1;
+
+  if (isDirectSubmitRunError) {
+    return (
+      "ห้ามกด Run ฟังก์ชัน submitRequest() ตรงๆ ใน Apps Script. " +
+      "ให้ทดสอบโดยส่งฟอร์มจากหน้าเว็บ index.html หรือเรียก Web App URL ด้วย action=submitRequest ผ่าน POST เท่านั้น."
+    );
+  }
 
   if (isDriveAuthError) {
     return (
