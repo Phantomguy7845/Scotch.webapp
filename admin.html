@@ -37,7 +37,11 @@
     </div>
 
     <main class="page page-admin">
-      <section class="hero hero-compact">
+      <section class="hero hero-compact admin-hero">
+        <div class="admin-corner-chip">
+          <span>Admin</span>
+          <strong id="adminNameLabel">-</strong>
+        </div>
         <p class="hero-kicker">Scotch Fleet Service</p>
         <h1>Admin Approval Console</h1>
         <p class="hero-copy">
@@ -47,13 +51,6 @@
       </section>
 
       <section class="card admin-tools">
-        <div class="control-grid">
-          <label>
-            <span>Decided by</span>
-            <input id="approvedByInput" type="text" placeholder="Admin name" value="Fleet Admin" />
-          </label>
-        </div>
-
         <div class="admin-actions">
           <button id="refreshBtn" type="button" class="button-secondary">Refresh requests</button>
           <button id="logoutAdminBtn" type="button" class="button-secondary">ออกจากโหมดแอดมิน</button>

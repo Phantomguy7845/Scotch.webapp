@@ -5,7 +5,7 @@
   const listEl = document.getElementById("requestList");
   const countEl = document.getElementById("requestCount");
   const messageEl = document.getElementById("adminMessage");
-  const approvedByInput = document.getElementById("approvedByInput");
+  const adminNameLabel = document.getElementById("adminNameLabel");
   const refreshBtn = document.getElementById("refreshBtn");
   const logoutAdminBtn = document.getElementById("logoutAdminBtn");
 
@@ -42,6 +42,8 @@
   bootstrap();
 
   async function bootstrap() {
+    setAdminNameDisplay("");
+
     if (!isApiConfigured()) {
       setAuthenticated(false);
       renderEmpty("Set assets/js/config.js with API URL before use.");
@@ -92,13 +94,7 @@
       };
       writeStoredAuth(authSession);
       setAuthenticated(true);
-
-      if (approvedByInput) {
-        const current = approvedByInput.value.trim();
-        if (!current || current === "Fleet Admin") {
-          approvedByInput.value = authSession.adminName;
-        }
-      }
+      setAdminNameDisplay(authSession.adminName);
 
       setLoginMessage("", "");
       if (!silent) {
@@ -109,6 +105,7 @@
     } catch (error) {
       authSession = null;
       clearStoredAuth();
+      setAdminNameDisplay("");
       setAuthenticated(false);
       renderEmpty("Please sign in as admin.");
       if (!silent) {
@@ -374,7 +371,7 @@
       return;
     }
 
-    const approvedBy = approvedByInput && approvedByInput.value.trim() ? approvedByInput.value.trim() : authSession.adminName;
+    const approvedBy = authSession.adminName || "Fleet Admin";
     if (!window.confirm(options.decisionText + "คำขอ " + options.requestId + " และส่งอีเมลแจ้งผลใช่หรือไม่?")) {
       return;
     }
@@ -439,6 +436,11 @@
     if (refreshBtn) refreshBtn.disabled = !isAuthenticated;
   }
 
+  function setAdminNameDisplay(adminName) {
+    if (!adminNameLabel) return;
+    adminNameLabel.textContent = adminName || "-";
+  }
+
   function setLoginBusy(isBusy) {
     if (loginBtn) {
       loginBtn.disabled = isBusy;
@@ -490,6 +492,7 @@
   function exitAdminMode() {
     authSession = null;
     clearStoredAuth();
+    setAdminNameDisplay("");
     if (loginPassInput) loginPassInput.value = "";
     setAuthenticated(false);
     renderEmpty("Logged out from admin mode. Please sign in again.");

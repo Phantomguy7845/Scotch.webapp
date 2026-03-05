@@ -27,21 +27,21 @@ Scotch_webapps1/
 1. Create a new Google Sheet.
 2. Open `Extensions > Apps Script`.
 3. Replace default script content with [`apps-script/Code.gs`](apps-script/Code.gs).
-4. Update this line in Apps Script:
-   - `ADMIN_KEY: "CHANGE_ME_TO_A_STRONG_ADMIN_KEY"`
-5. Save the script project.
-6. Deploy as web app:
+4. Create a sheet named `Admin` with headers:
+   - `admin_ID`, `admin_Name`, `admin_Pass`
+5. Add at least one admin account row in that `Admin` sheet.
+6. Save the script project.
+7. Deploy as web app:
    - `Deploy > New deployment > Web app`
    - Execute as: `Me`
    - Who has access: `Anyone`
-7. Copy the deployed web app URL (ends with `/exec`).
+8. Copy the deployed web app URL (ends with `/exec`).
 
 ## 2) Configure Frontend
 
 1. Open [`assets/js/config.js`](assets/js/config.js).
 2. Update:
    - `apiBaseUrl`: paste your Apps Script `/exec` URL
-   - `adminKey`: optional, or leave empty and type it on admin page
 3. Save file.
 
 ## 3) Deploy Frontend to GitHub Pages
@@ -61,7 +61,7 @@ Your URLs will look like:
 ## 4) Test Flow
 
 1. Open `index.html` and submit a request.
-2. Open `admin.html`, enter admin key, and refresh requests.
+2. Open `admin.html`, login with `admin_Name` and `admin_Pass`, then refresh requests.
 3. Click `Approve and notify`.
 4. Verify:
    - Status changes to `APPROVED` in admin page.
@@ -70,6 +70,6 @@ Your URLs will look like:
 
 ## Important Notes
 
-- This is a lightweight admin-key model. For stronger security, add proper authentication (Google Sign-In, OAuth, or server-side auth).
+- This is a lightweight admin sheet credential model. For stronger security, add proper authentication (Google Sign-In, OAuth, or server-side auth).
 - Do not expose sensitive secrets in public repositories.
 - Apps Script quotas apply for email sending (`MailApp`).

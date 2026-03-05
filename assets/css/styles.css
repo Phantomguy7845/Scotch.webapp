@@ -773,6 +773,37 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.admin-hero {
+  position: relative;
+  padding-right: 200px;
+}
+
+.admin-corner-chip {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d7deea;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 8px 12px;
+  color: #2a3248;
+  font-size: 0.82rem;
+  backdrop-filter: blur(3px);
+}
+
+.admin-corner-chip span {
+  color: #606a82;
+}
+
+.admin-corner-chip strong {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 0.9rem;
+  color: #192540;
+}
+
 .admin-login-overlay {
   position: fixed;
   inset: 0;
@@ -1011,6 +1042,11 @@ button:disabled {
   .hero {
     padding: 28px;
   }
+
+  .admin-hero {
+    padding-right: 28px;
+    padding-top: 76px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1087,5 +1123,16 @@ button:disabled {
 
   .form-actions button {
     width: 100%;
+  }
+
+  .admin-hero {
+    padding-top: 74px;
+  }
+
+  .admin-corner-chip {
+    top: 12px;
+    right: 12px;
+    padding: 7px 10px;
+    font-size: 0.75rem;
   }
 }
