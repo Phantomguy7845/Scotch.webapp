@@ -771,7 +771,7 @@ button:disabled {
 .control-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .admin-actions {
@@ -780,6 +780,10 @@ button:disabled {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.admin-actions .form-message {
+  flex: 1 1 100%;
 }
 
 .admin-list-wrap {

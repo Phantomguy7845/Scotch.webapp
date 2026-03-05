@@ -4,16 +4,17 @@
   const listEl = document.getElementById("requestList");
   const countEl = document.getElementById("requestCount");
   const messageEl = document.getElementById("adminMessage");
-  const apiUrlInput = document.getElementById("apiUrlInput");
   const adminKeyInput = document.getElementById("adminKeyInput");
   const approvedByInput = document.getElementById("approvedByInput");
   const saveAdminKeyBtn = document.getElementById("saveAdminKeyBtn");
   const refreshBtn = document.getElementById("refreshBtn");
+  const logoutAdminBtn = document.getElementById("logoutAdminBtn");
 
   if (!listEl) return;
 
-  apiUrlInput.value = config.apiBaseUrl || "";
   adminKeyInput.value = localStorage.getItem(STORAGE_KEY) || config.adminKey || "";
+  preventAdminKeyCopy(adminKeyInput);
+  adminKeyInput.addEventListener("input", persistAdminKey);
 
   saveAdminKeyBtn.addEventListener("click", () => {
     localStorage.setItem(STORAGE_KEY, adminKeyInput.value.trim());
@@ -21,6 +22,7 @@
   });
 
   refreshBtn.addEventListener("click", loadRequests);
+  if (logoutAdminBtn) logoutAdminBtn.addEventListener("click", exitAdminMode);
   loadRequests();
 
   async function loadRequests() {
@@ -28,7 +30,7 @@
 
     const adminKey = getAdminKey();
     if (!isApiConfigured()) {
-      renderEmpty("Set assets/js/config.js with Apps Script URL before use.");
+      renderEmpty("Set assets/js/config.js with API URL before use.");
       showMessage("API URL is not configured.", "error");
       return;
     }
@@ -240,6 +242,37 @@
 
   function getAdminKey() {
     return adminKeyInput.value.trim();
+  }
+
+  function exitAdminMode() {
+    localStorage.removeItem(STORAGE_KEY);
+    adminKeyInput.value = "";
+    renderEmpty("Logged out from admin mode. Enter admin key to continue.");
+    showMessage("Admin key removed from this browser.", "success");
+  }
+
+  function persistAdminKey() {
+    const value = adminKeyInput.value.trim();
+    if (!value) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, value);
+  }
+
+  function preventAdminKeyCopy(inputEl) {
+    if (!inputEl) return;
+    const blockedEvents = ["copy", "cut", "contextmenu", "dragstart"];
+    blockedEvents.forEach((eventName) => {
+      inputEl.addEventListener(eventName, (event) => {
+        event.preventDefault();
+      });
+    });
+    inputEl.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && (event.key === "c" || event.key === "x")) {
+        event.preventDefault();
+      }
+    });
   }
 
   function isApiConfigured() {
