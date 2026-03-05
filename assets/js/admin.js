@@ -253,7 +253,7 @@
         detailRow("ยอดเงิน", request.offcycleAmount || "-"),
         detailRow("มี PO", request.offcycleHasPo === "YES" ? "มี" : "ไม่มี"),
         attachmentRow(
-          "รูป PO",
+          "ไฟล์ PO",
           request.offcyclePoImageUrl,
           request.offcyclePoImageDownloadUrl,
           request.offcyclePoImageName,
@@ -271,14 +271,14 @@
         detailRow("เบอร์ติดต่อผู้รับ/หน้างาน", request.factoryReceiverPhone || "-"),
         detailRow("รายละเอียดเอกสารชั่วคราว", request.factoryTempDocumentRef || "-"),
         attachmentRow(
-          "รูปเอกสารชั่วคราว",
+          "ไฟล์เอกสารชั่วคราว",
           request.factoryTempDocumentImageUrl,
           request.factoryTempDocumentImageDownloadUrl,
           request.factoryTempDocumentImageName,
         ),
         detailRow("รายละเอียดเบิกของ/Reservation", request.factoryReservationRef || "-"),
         attachmentRow(
-          "รูป Reservation",
+          "ไฟล์ Reservation",
           request.factoryReservationImageUrl,
           request.factoryReservationImageDownloadUrl,
           request.factoryReservationImageName,

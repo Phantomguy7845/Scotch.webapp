@@ -14,7 +14,27 @@ const TOPIC_OFF_CYCLE = "OFF_CYCLE_DELIVERY";
 const TOPIC_FACTORY = "FACTORY_CAR";
 const CASE_FACTORY_DELIVERY = "FACTORY_DELIVERY_DOCS";
 const CASE_FACTORY_SHUTTLE = "FACTORY_STAFF_SHUTTLE";
-const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_UPLOAD_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+const ALLOWED_UPLOAD_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+];
 const DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 const DATE_FORMAT = "yyyy-MM-dd";
 const TIME_FORMAT = "HH:mm";
@@ -502,8 +522,8 @@ function buildDecisionDetailItems(request) {
     pushDecisionItem(items, "ยอดเงิน", request.offcycleAmount);
     pushDecisionItem(items, "มี PO", request.offcycleHasPo === "YES" ? "มี" : "ไม่มี");
     if (request.offcycleHasPo === "YES") {
-      pushDecisionItem(items, "ลิงก์รูป PO", request.offcyclePoImageUrl);
-      pushDecisionItem(items, "ลิงก์ดาวน์โหลดรูป PO", request.offcyclePoImageDownloadUrl);
+      pushDecisionItem(items, "ลิงก์ไฟล์ PO", request.offcyclePoImageUrl);
+      pushDecisionItem(items, "ลิงก์ดาวน์โหลดไฟล์ PO", request.offcyclePoImageDownloadUrl);
     }
   }
 
@@ -517,14 +537,14 @@ function buildDecisionDetailItems(request) {
       pushDecisionItem(items, "เบอร์ติดต่อหน้างาน", request.factoryReceiverPhone);
       pushDecisionItem(items, "รายละเอียดเอกสารชั่วคราว", request.factoryTempDocumentRef);
       pushDecisionItem(items, "รายละเอียด Reservation", request.factoryReservationRef);
-      pushDecisionItem(items, "ลิงก์รูปเอกสารชั่วคราว", request.factoryTempDocumentImageUrl);
+      pushDecisionItem(items, "ลิงก์ไฟล์เอกสารชั่วคราว", request.factoryTempDocumentImageUrl);
       pushDecisionItem(
         items,
         "ลิงก์ดาวน์โหลดเอกสารชั่วคราว",
         request.factoryTempDocumentImageDownloadUrl,
       );
-      pushDecisionItem(items, "ลิงก์รูป Reservation", request.factoryReservationImageUrl);
-      pushDecisionItem(items, "ลิงก์ดาวน์โหลดรูป Reservation", request.factoryReservationImageDownloadUrl);
+      pushDecisionItem(items, "ลิงก์ไฟล์ Reservation", request.factoryReservationImageUrl);
+      pushDecisionItem(items, "ลิงก์ดาวน์โหลดไฟล์ Reservation", request.factoryReservationImageDownloadUrl);
     }
     if (request.factoryCaseType === CASE_FACTORY_SHUTTLE) {
       pushDecisionItem(items, "จำนวนผู้โดยสาร", request.shuttlePassengers);
@@ -605,12 +625,22 @@ function sanitizeAttachments(data) {
 
 function normalizeAttachment(rawAttachment) {
   if (!rawAttachment || typeof rawAttachment !== "object") return emptyAttachment();
+  const attachmentName = safeText(rawAttachment.name);
   return {
-    name: safeText(rawAttachment.name),
-    mimeType: safeText(rawAttachment.mimeType).toLowerCase(),
+    name: attachmentName,
+    mimeType: normalizeAttachmentMimeType(rawAttachment.mimeType, attachmentName),
     base64: safeBase64(rawAttachment.base64),
     size: Number(rawAttachment.size || 0),
   };
+}
+
+function normalizeAttachmentMimeType(rawMimeType, fileName) {
+  const mimeType = safeText(rawMimeType).toLowerCase();
+  if (ALLOWED_UPLOAD_MIME_TYPES.indexOf(mimeType) > -1) return mimeType;
+
+  const inferred = mimeTypeFromExtension(getFileExtension(fileName));
+  if (inferred) return inferred;
+  return mimeType;
 }
 
 function emptyAttachment() {
@@ -692,12 +722,20 @@ function validateSubmission(data, attachments) {
 
 function assertValidAttachment(attachment, fieldName) {
   if (!attachment || !attachment.base64) throw new Error("Missing required attachment: " + fieldName);
-  if (ALLOWED_IMAGE_MIME_TYPES.indexOf(attachment.mimeType) === -1) {
+  if (!isAllowedAttachmentType(attachment)) {
     throw new Error("Invalid attachment mime type: " + fieldName);
   }
   const decodedBytes = estimateDecodedByteSize(attachment.base64);
   if (decodedBytes <= 0) throw new Error("Invalid attachment content: " + fieldName);
   if (decodedBytes > CONFIG.MAX_UPLOAD_BYTES) throw new Error("Attachment is too large: " + fieldName);
+}
+
+function isAllowedAttachmentType(attachment) {
+  const mimeType = safeText(attachment && attachment.mimeType).toLowerCase();
+  if (ALLOWED_UPLOAD_MIME_TYPES.indexOf(mimeType) > -1) return true;
+
+  const extension = getFileExtension(safeText(attachment && attachment.name));
+  return ALLOWED_UPLOAD_EXTENSIONS.indexOf(extension) > -1;
 }
 
 function estimateDecodedByteSize(base64) {
@@ -746,7 +784,35 @@ function extensionFromMimeType(mimeType) {
   if (mimeType === "image/jpeg") return "jpg";
   if (mimeType === "image/png") return "png";
   if (mimeType === "image/webp") return "webp";
+  if (mimeType === "application/pdf") return "pdf";
+  if (mimeType === "application/msword") return "doc";
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    return "docx";
+  if (mimeType === "application/vnd.ms-excel") return "xls";
+  if (mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return "xlsx";
   return "bin";
+}
+
+function getFileExtension(fileName) {
+  const text = safeText(fileName).toLowerCase();
+  const dotIndex = text.lastIndexOf(".");
+  if (dotIndex < 0) return "";
+  return text.slice(dotIndex);
+}
+
+function mimeTypeFromExtension(extension) {
+  const ext = safeText(extension).toLowerCase();
+  if (ALLOWED_UPLOAD_EXTENSIONS.indexOf(ext) === -1) return "";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".pdf") return "application/pdf";
+  if (ext === ".doc") return "application/msword";
+  if (ext === ".docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (ext === ".xls") return "application/vnd.ms-excel";
+  if (ext === ".xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  return "";
 }
 
 function sanitizeFileName(fileName) {

@@ -172,9 +172,15 @@
 
             <div id="offcyclePoBlock" class="conditional-block hidden">
               <label class="col-span-2">
-                <span>แนบรูป PO *</span>
-                <input name="offcyclePoImage" type="file" accept="image/png,image/jpeg,image/webp" />
-                <small class="field-hint">รองรับไฟล์ภาพ .png .jpg .webp (ไม่เกิน 3MB)</small>
+                <span>แนบไฟล์ PO *</span>
+                <input
+                  name="offcyclePoImage"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,image/png,image/jpeg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                />
+                <small class="field-hint">
+                  รองรับ .jpg .png .webp .pdf .doc .docx .xls .xlsx (ไม่เกิน 3MB)
+                </small>
                 <p class="field-error" data-error-for="offcyclePoImage"></p>
               </label>
             </div>
@@ -231,13 +237,15 @@
               </label>
 
               <label class="col-span-2">
-                <span>แนบรูปเอกสารใบส่งสินค้าชั่วคราว/ใบคืนสินค้าชั่วคราว *</span>
+                <span>แนบไฟล์เอกสารใบส่งสินค้าชั่วคราว/ใบคืนสินค้าชั่วคราว *</span>
                 <input
                   name="factoryTempDocumentImage"
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,image/png,image/jpeg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 />
-                <small class="field-hint">รองรับไฟล์ภาพ .png .jpg .webp (ไม่เกิน 3MB)</small>
+                <small class="field-hint">
+                  รองรับ .jpg .png .webp .pdf .doc .docx .xls .xlsx (ไม่เกิน 3MB)
+                </small>
                 <p class="field-error" data-error-for="factoryTempDocumentImage"></p>
               </label>
 
@@ -253,13 +261,15 @@
               </label>
 
               <label class="col-span-2">
-                <span>แนบรูปเบิกของจากไหน (ภาพแคป E-Mail Reservation) *</span>
+                <span>แนบไฟล์เบิกของจากไหน (ภาพแคป E-Mail Reservation) *</span>
                 <input
                   name="factoryReservationImage"
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,image/png,image/jpeg,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 />
-                <small class="field-hint">รองรับไฟล์ภาพ .png .jpg .webp (ไม่เกิน 3MB)</small>
+                <small class="field-hint">
+                  รองรับ .jpg .png .webp .pdf .doc .docx .xls .xlsx (ไม่เกิน 3MB)
+                </small>
                 <p class="field-error" data-error-for="factoryReservationImage"></p>
               </label>
 

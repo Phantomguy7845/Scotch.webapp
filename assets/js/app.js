@@ -3,7 +3,27 @@
   const DRAFT_KEY = "scotch_webapps1_request_draft_v2";
   const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024;
   const FILE_FIELDS = ["offcyclePoImage", "factoryTempDocumentImage", "factoryReservationImage"];
-  const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const ALLOWED_UPLOAD_MIME_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ];
+  const ALLOWED_UPLOAD_EXTENSIONS = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+  ];
   const form = document.getElementById("requestForm");
   const submitBtn = document.getElementById("submitBtn");
   const clearDraftBtn = document.getElementById("clearDraftBtn");
@@ -251,8 +271,11 @@
         return { message: "ยอดเงินไม่ถูกต้อง" };
       }
       if (data.offcycleHasPo === "YES" && !isValidUploadFile(data.offcyclePoImage)) {
-        setFieldError("offcyclePoImage", "กรุณาแนบรูป PO ให้ถูกต้อง (png/jpg/webp ไม่เกิน 3MB)");
-        return { message: "กรุณาแนบรูป PO ให้ถูกต้อง" };
+        setFieldError(
+          "offcyclePoImage",
+          "รองรับ jpg/png/webp/pdf/doc/docx/xls/xlsx และขนาดไม่เกิน 3MB",
+        );
+        return { message: "กรุณาแนบไฟล์ PO ให้ถูกต้อง" };
       }
     }
 
@@ -287,12 +310,18 @@
           return { message: "เบอร์ติดต่อผู้รับ/หน้างานไม่ถูกต้อง" };
         }
         if (!isValidUploadFile(data.factoryTempDocumentImage)) {
-          setFieldError("factoryTempDocumentImage", "กรุณาแนบรูปเอกสารให้ถูกต้อง (png/jpg/webp ไม่เกิน 3MB)");
-          return { message: "กรุณาแนบรูปเอกสารชั่วคราวให้ถูกต้อง" };
+          setFieldError(
+            "factoryTempDocumentImage",
+            "รองรับ jpg/png/webp/pdf/doc/docx/xls/xlsx และขนาดไม่เกิน 3MB",
+          );
+          return { message: "กรุณาแนบไฟล์เอกสารชั่วคราวให้ถูกต้อง" };
         }
         if (!isValidUploadFile(data.factoryReservationImage)) {
-          setFieldError("factoryReservationImage", "กรุณาแนบรูป Reservation ให้ถูกต้อง (png/jpg/webp ไม่เกิน 3MB)");
-          return { message: "กรุณาแนบรูป Reservation ให้ถูกต้อง" };
+          setFieldError(
+            "factoryReservationImage",
+            "รองรับ jpg/png/webp/pdf/doc/docx/xls/xlsx และขนาดไม่เกิน 3MB",
+          );
+          return { message: "กรุณาแนบไฟล์ Reservation ให้ถูกต้อง" };
         }
       }
 
@@ -569,7 +598,7 @@
 
   function isValidUploadFile(file) {
     if (!(file instanceof File)) return false;
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) return false;
+    if (!isAllowedUploadType(file)) return false;
     if (file.size <= 0 || file.size > MAX_FILE_SIZE_BYTES) return false;
     return true;
   }
@@ -577,12 +606,59 @@
   async function toAttachmentPayload(file) {
     if (!(file instanceof File) || file.size === 0) return null;
     const base64 = await readFileAsBase64(file);
+    const mimeType = normalizeUploadMimeType(file);
+    if (!mimeType) {
+      throw new Error(
+        "ชนิดไฟล์ไม่รองรับ (อนุญาตเฉพาะ jpg/png/webp/pdf/doc/docx/xls/xlsx)",
+      );
+    }
     return {
       name: file.name,
-      mimeType: file.type,
+      mimeType: mimeType,
       base64: base64,
       size: file.size,
     };
+  }
+
+  function isAllowedUploadType(file) {
+    const mimeType = normalizeUploadMimeType(file);
+    return Boolean(mimeType && ALLOWED_UPLOAD_MIME_TYPES.includes(mimeType));
+  }
+
+  function normalizeUploadMimeType(file) {
+    const rawType = String((file && file.type) || "")
+      .trim()
+      .toLowerCase();
+    if (rawType && rawType !== "application/octet-stream") {
+      if (ALLOWED_UPLOAD_MIME_TYPES.includes(rawType)) return rawType;
+      return "";
+    }
+
+    const extension = getFileExtension(file && file.name);
+    return mimeFromExtension(extension);
+  }
+
+  function getFileExtension(fileName) {
+    const text = String(fileName || "").trim().toLowerCase();
+    const dotIndex = text.lastIndexOf(".");
+    if (dotIndex < 0) return "";
+    return text.slice(dotIndex);
+  }
+
+  function mimeFromExtension(extension) {
+    const ext = String(extension || "").toLowerCase();
+    if (!ALLOWED_UPLOAD_EXTENSIONS.includes(ext)) return "";
+    if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+    if (ext === ".png") return "image/png";
+    if (ext === ".webp") return "image/webp";
+    if (ext === ".pdf") return "application/pdf";
+    if (ext === ".doc") return "application/msword";
+    if (ext === ".docx")
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (ext === ".xls") return "application/vnd.ms-excel";
+    if (ext === ".xlsx")
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    return "";
   }
 
   function readFileAsBase64(file) {
