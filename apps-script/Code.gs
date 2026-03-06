@@ -87,6 +87,7 @@ const HEADERS = [
   "rejectedAt",
   "rejectedBy",
   "decisionRemark",
+  "requesterRemark",
 ];
 
 const DATETIME_FIELDS = ["submittedAt", "approvedAt", "rejectedAt"];
@@ -183,6 +184,7 @@ function submitRequest(data) {
     requesterName: clean.requesterName,
     requesterPhone: clean.requesterPhone,
     contactEmail: clean.contactEmail,
+    requesterRemark: clean.requesterRemark,
     offcycleStoreName: clean.offcycleStoreName,
     offcycleDeliveryDate: clean.offcycleDeliveryDate,
     offcycleCrates: clean.offcycleCrates,
@@ -513,6 +515,7 @@ function buildDecisionDetailItems(request) {
   pushDecisionItem(items, "ผู้ขอใช้", request.requesterName);
   pushDecisionItem(items, "เบอร์ติดต่อผู้ขอ", request.requesterPhone);
   pushDecisionItem(items, "อีเมลติดต่อ", request.contactEmail);
+  pushDecisionItem(items, "หมายเหตุผู้ร้องขอ", request.requesterRemark);
   pushDecisionItem(items, "ส่งคำขอเมื่อ", request.submittedAt);
 
   if (request.requestTopic === TOPIC_OFF_CYCLE) {
@@ -591,6 +594,7 @@ function sanitizeTextData(data) {
     requesterName: safeText(source.requesterName),
     requesterPhone: safeText(source.requesterPhone),
     contactEmail: safeText(source.contactEmail),
+    requesterRemark: safeText(source.requesterRemark),
     offcycleStoreName: safeText(source.offcycleStoreName),
     offcycleDeliveryDate: safeText(source.offcycleDeliveryDate),
     offcycleCrates: safeText(source.offcycleCrates),
@@ -671,6 +675,7 @@ function validateSubmission(data, attachments) {
   if (data.policyAgree !== "YES") throw new Error("Policy agreement is required.");
 
   if (data.requestTopic === TOPIC_OFF_CYCLE) {
+    requireField(data, "requesterRemark");
     requireField(data, "offcycleStoreName");
     requireField(data, "offcycleDeliveryDate");
     requireField(data, "offcycleCrates");

@@ -368,6 +368,7 @@
         { label: "ผู้ขอใช้", value: request.requesterName || "-" },
         { label: "เบอร์ติดต่อ", value: request.requesterPhone || "-" },
         { label: "อีเมล", value: request.contactEmail || "-" },
+        { label: "หมายเหตุผู้ร้องขอ", value: request.requesterRemark || "-" },
       ]) +
       renderCaseInfoBlock(request) +
       renderAttachmentBlock(request) +
@@ -585,6 +586,7 @@
       request.requesterName,
       request.requesterPhone,
       request.contactEmail,
+      request.requesterRemark,
       request.offcycleStoreName,
       request.factoryJobName,
       request.factoryDeliveryLocation,

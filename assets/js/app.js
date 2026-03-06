@@ -253,6 +253,10 @@
     }
 
     if (data.requestTopic === "OFF_CYCLE_DELIVERY") {
+      if (!data.requesterRemark) {
+        setFieldError("requesterRemark", "กรุณาระบุสาเหตุที่ส่งสินค้าไม่ตรงรอบ");
+        return { message: "กรุณาระบุหมายเหตุสาเหตุส่งสินค้าไม่ตรงรอบ" };
+      }
       if (!data.offcycleStoreName) return fieldRequired("offcycleStoreName", "กรุณากรอกชื่อห้าง");
       if (!data.offcycleDeliveryDate)
         return fieldRequired("offcycleDeliveryDate", "กรุณาเลือกวันที่ต้องการจัดส่ง");
@@ -374,6 +378,10 @@
     if (!(topic === "OFF_CYCLE_DELIVERY" && hasPo) && offcyclePoInput) {
       offcyclePoInput.value = "";
       clearFieldError("offcyclePoImage");
+    }
+
+    if (topic !== "OFF_CYCLE_DELIVERY") {
+      clearFieldError("requesterRemark");
     }
   }
 
